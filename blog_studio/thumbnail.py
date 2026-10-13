@@ -56,7 +56,7 @@ class DiagramSpec(BaseModel):
     footnote: str | None = Field(default=None, description="Optional short monospace caption for the bottom-left corner.")
 
     @model_validator(mode="after")
-    def _check(self) -> "DiagramSpec":
+    def _check(self) -> DiagramSpec:
         ids = [n.id for n in self.nodes]
         if len(ids) != len(set(ids)):
             raise ValueError("node ids must be unique")

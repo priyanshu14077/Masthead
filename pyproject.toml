@@ -1,7 +1,7 @@
 [project]
 name = "blog-studio"
 version = "0.1.0"
-description = "Local campaign manager for the portfolio blog: ideas to outlines, drafts, checks and commits."
+description = "Masthead: the publishing desk for engineering teams."
 requires-python = ">=3.12"
 dependencies = [
   "anthropic>=0.70",
@@ -9,7 +9,15 @@ dependencies = [
   "uvicorn>=0.32",
   "pydantic>=2.9",
   "pyyaml>=6.0",
+  "sqlalchemy>=2.0",
+  "cryptography>=43",
+  "stripe>=11",
+  "httpx>=0.27",
+  "pyjwt[crypto]>=2.9",
 ]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2"]
 
 [project.scripts]
 blog-studio = "blog_studio.cli:main"
@@ -26,3 +34,14 @@ packages = ["blog_studio"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 180
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "PLW", "RUF"]
+ignore = ["E501"]  # prompts are long strings
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]

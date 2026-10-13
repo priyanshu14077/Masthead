@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -63,7 +64,7 @@ def init(site: Path) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="blog-studio", description="A local campaign manager for a static blog.")
+    parser = argparse.ArgumentParser(prog="blog-studio", description="Masthead: the publishing desk for engineering teams.")
     parser.add_argument("command", nargs="?", choices=["serve", "init"], default="serve")
     parser.add_argument("--site", help="path to the blog's repository (or set BLOG_STUDIO_SITE)")
     args = parser.parse_args()
@@ -82,7 +83,14 @@ def main() -> None:
     except ConfigError as e:
         print(f"blog-studio: {e}", file=sys.stderr)
         sys.exit(2)
-    print(f"Blog Studio for {settings.site.name} on http://127.0.0.1:{settings.port}  (site: {settings.repo_root})")
+    if settings.cloud:
+        # Hosted: listen on every interface behind the platform's proxy; the host check uses MASTHEAD_BASE_URL.
+        host = os.environ.get("HOST", "0.0.0.0")
+        print(f"Masthead (hosted) on {settings.base_url}")
+        uvicorn.run(create_app(settings), host=host, port=settings.port, log_level="info", proxy_headers=True)
+        return
+    assert settings.site is not None
+    print(f"Masthead for {settings.site.name} on http://127.0.0.1:{settings.port}  (site: {settings.site.root})")
     uvicorn.run(create_app(settings), host="127.0.0.1", port=settings.port, log_level="info")
 
 

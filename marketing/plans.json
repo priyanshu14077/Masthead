@@ -1,0 +1,62 @@
+{
+  "product": "Masthead",
+  "tagline": "The publishing desk for engineering teams.",
+  "currency": "usd",
+  "annual_months_charged": 10,
+  "byok": "Every plan uses your own Anthropic API key. Masthead never marks up model usage.",
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free",
+      "price_monthly": 0,
+      "per_seat": false,
+      "pitch": "One writer, one blog.",
+      "limits": { "seats": 1, "repos": 1, "posts_per_month": 5, "reviewers_required": 0 },
+      "features": ["outline", "draft", "confidentiality_check", "thumbnails", "pull_requests"]
+    },
+    {
+      "id": "team",
+      "name": "Team",
+      "price_monthly": 19,
+      "per_seat": true,
+      "min_seats": 2,
+      "pitch": "Write, review and schedule as a team.",
+      "limits": { "seats": 50, "repos": 5, "posts_per_month": null, "reviewers_required": 1 },
+      "features": [
+        "outline", "draft", "confidentiality_check", "thumbnails", "pull_requests",
+        "review_workflow", "roles", "scheduling", "campaigns", "distribution_copy", "brand_voice"
+      ]
+    },
+    {
+      "id": "business",
+      "name": "Business",
+      "price_monthly": 39,
+      "per_seat": true,
+      "min_seats": 5,
+      "pitch": "Governance for companies that publish at scale.",
+      "limits": { "seats": null, "repos": null, "posts_per_month": null, "reviewers_required": 3 },
+      "features": [
+        "outline", "draft", "confidentiality_check", "thumbnails", "pull_requests",
+        "review_workflow", "roles", "scheduling", "campaigns", "distribution_copy", "brand_voice",
+        "approval_rules", "audit_log", "sso", "priority_support"
+      ]
+    }
+  ],
+  "feature_labels": {
+    "outline": "AI outlines from your notes",
+    "draft": "Streaming drafts in your blog's MDX components",
+    "confidentiality_check": "Confidentiality and fact check before anything ships",
+    "thumbnails": "Architecture-diagram thumbnails in your palette",
+    "pull_requests": "One pull request per post on your repo",
+    "review_workflow": "Reviewer sign-off before a post can ship",
+    "roles": "Roles: owner, editor, writer, reviewer",
+    "scheduling": "Scheduled publishing",
+    "campaigns": "Campaigns and multi-part series",
+    "distribution_copy": "LinkedIn, X and newsletter copy per post",
+    "brand_voice": "Shared brand voice and component guide",
+    "approval_rules": "Approval rules: required reviewers per repo",
+    "audit_log": "Audit log of every draft, check and publish",
+    "sso": "SAML single sign-on",
+    "priority_support": "Priority support"
+  }
+}

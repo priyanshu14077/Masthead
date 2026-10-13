@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pricing · Masthead</title>
+  <meta name="description" content="Masthead pricing: Free, Team and Business plans, per seat, on your own Anthropic API key." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="main.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <div class="dateline">
+    <div class="wrap">
+      <p class="label">The publishing desk for engineering teams</p>
+      <p class="label hide-sm">Runs on your Anthropic key</p>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="wrap bar">
+      <a class="brand" href="index.html"><img src="assets/masthead-wordmark.svg" alt="Masthead home" width="168" height="26" /></a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+      <nav id="site-nav" aria-label="Main">
+        <ul class="nav-list">
+          <li><a href="index.html#flow">How it works</a></li>
+          <li><a href="index.html#check">The check</a></li>
+          <li><a href="index.html#teams">Teams</a></li>
+          <li><a href="pricing.html" aria-current="page">Pricing</a></li>
+          <li><a href="index.html#faq">FAQ</a></li>
+        </ul>
+      </nav>
+      <div class="header-cta">
+        <a class="btn ghost" data-demo-link>Book a demo</a>
+        <a class="btn" data-app-link="/signup">Start free</a>
+      </div>
+    </div>
+    <div class="wrap"><hr class="rule" /></div>
+  </header>
+
+  <main id="main">
+
+    <section class="page-hero" aria-labelledby="page-title">
+      <div class="wrap">
+        <p class="label kicker">Pricing</p>
+        <h1 id="page-title">Pay for seats. Bring your own key.</h1>
+        <p class="lede">Every plan runs on your team's Anthropic API key. Masthead never marks up model usage.</p>
+      </div>
+    </section>
+
+    <section class="section tight" style="padding-top:0" aria-labelledby="plans-title">
+      <div class="wrap">
+        <h2 id="plans-title" class="sr-only">Plans</h2>
+        <div class="toggle-row">
+          <div class="toggle" role="group" aria-label="Billing period">
+            <button type="button" data-billing="monthly" aria-pressed="true">Monthly</button>
+            <button type="button" data-billing="annual" aria-pressed="false">Annual</button>
+          </div>
+          <p class="label" data-annual-note>Annual: 10 months charged for 12</p>
+          <p class="sr-only" role="status" data-billing-status></p>
+        </div>
+        <div class="tiers" data-tiers>
+          <article class="tier"><h3>Free</h3><p class="tier-pitch">One writer, one blog.</p></article>
+          <article class="tier featured"><h3>Team</h3><p class="tier-pitch">Write, review and schedule as a team.</p></article>
+          <article class="tier"><h3>Business</h3><p class="tier-pitch">Governance for companies that publish at scale.</p></article>
+        </div>
+
+        <aside class="byok" style="margin-top:40px" aria-label="Bring your own key">
+          <p class="label">Your key</p>
+          <div style="display:grid;gap:10px">
+            <p data-byok>Every plan uses your own Anthropic API key. Masthead never marks up model usage.</p>
+            <p class="tier-pitch" style="font-family:var(--sans);font-size:16px;color:var(--ink-muted)">Anthropic bills model usage to your account at Anthropic's rates. Masthead charges only for seats.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section dimmed" aria-labelledby="compare-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="label kicker">Compare</p>
+          <h2 id="compare-title">Every plan, line by line.</h2>
+        </div>
+        <table class="compare" data-compare></table>
+      </div>
+    </section>
+
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="wrap faq-grid">
+        <div>
+          <p class="label kicker">Pricing questions</p>
+          <h2 id="faq-title" style="font-size:clamp(2.1rem,4.6vw,3.5rem)">On the bill.</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>What do we pay Anthropic?</summary>
+            <div class="answer"><p>Whatever your own usage costs on your Anthropic account, at Anthropic's rates. Masthead adds nothing to it.</p></div>
+          </details>
+          <details>
+            <summary>How does annual billing work?</summary>
+            <div class="answer"><p>You pay for <span data-annual-months>10</span> months and get 12. The seat minimums are the same as monthly.</p></div>
+          </details>
+          <details>
+            <summary>Why do Team and Business have a seat minimum?</summary>
+            <div class="answer"><p>Both plans are built around review, which takes at least a writer and a reviewer. Team starts at <span data-min-seats="team">2</span> seats and Business at <span data-min-seats="business">5</span>.</p></div>
+          </details>
+          <details>
+            <summary>Is Free a trial?</summary>
+            <div class="answer"><p>No. Free is a plan for one writer and one blog, with outlines, drafts, the confidentiality check, thumbnails and pull requests.</p></div>
+          </details>
+          <details>
+            <summary>Which plan has single sign-on?</summary>
+            <div class="answer"><p>Business. It also adds approval rules, an audit log and priority support.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section tight dimmed" aria-labelledby="close-title">
+      <div class="wrap closing">
+        <hr class="rule" style="margin-bottom:40px" />
+        <h2 id="close-title">Start with one post.</h2>
+        <div class="btn-row">
+          <a class="btn" data-app-link="/signup">Start free</a>
+          <a class="btn ghost" data-demo-link>Book a demo</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer dark night">
+    <div class="wrap">
+      <hr class="rule" />
+      <div class="footer-grid">
+        <div>
+          <img src="assets/masthead-wordmark-reversed.svg" alt="Masthead" width="200" height="30" />
+          <p>The publishing desk for engineering teams.</p>
+        </div>
+        <div>
+          <h2>Product</h2>
+          <ul>
+            <li><a href="index.html#flow">How it works</a></li>
+            <li><a href="index.html#check">The check</a></li>
+            <li><a href="index.html#publishing">Publishing</a></li>
+            <li><a href="pricing.html">Pricing</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Company</h2>
+          <ul>
+            <li><a href="brand.html">Brand</a></li>
+            <li><a data-demo-link>Book a demo</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Get started</h2>
+          <ul>
+            <li><a data-app-link="/signup">Start free</a></li>
+            <li><a data-app-link="/login">Sign in</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-base">
+        <p>© <span data-year>2026</span> Masthead</p>
+        <p>Claude and Anthropic are trademarks of Anthropic.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

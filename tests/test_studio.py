@@ -163,7 +163,6 @@ def test_cannot_delete_a_post_that_is_in_the_site(client):
 def test_draft_stream_keeps_partial_text_on_error(client):
     from blog_studio.ai import AIError
 
-    app = client.app_ref
     post = make_post(client)
     client.post(f"/api/posts/{post['id']}/outline")
 
@@ -171,11 +170,7 @@ def test_draft_stream_keeps_partial_text_on_error(client):
         yield "## Half"
         raise AIError("The write this post ran out of room.")
 
-    model = next(r for r in app.routes if getattr(r, "path", "") == "/api/posts/{pid}/draft").endpoint.__closure__
-    # Swap the draft generator on the fake AI instance used by the app.
-    for cell in model:
-        if hasattr(cell.cell_contents, "draft"):
-            cell.cell_contents.draft = failing
+    client.fake_ai.draft = failing
     with client.stream("POST", f"/api/posts/{post['id']}/draft") as res:
         events = res.read().decode()
     assert "event: error" in events and json.loads(events.split("data: ")[-1])["partial"] is True

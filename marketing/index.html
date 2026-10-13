@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Masthead: the publishing desk for engineering teams</title>
+  <meta name="description" content="Masthead takes an engineering post from idea and notes to a checked draft and a pull request on your blog's repo, using your own Anthropic API key." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="main.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <div class="dateline">
+    <div class="wrap">
+      <p class="label">The publishing desk for engineering teams</p>
+      <p class="label hide-sm">Runs on your Anthropic key</p>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="wrap bar">
+      <a class="brand" href="index.html"><img src="assets/masthead-wordmark.svg" alt="Masthead home" width="168" height="26" /></a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+      <nav id="site-nav" aria-label="Main">
+        <ul class="nav-list">
+          <li><a href="#flow">How it works</a></li>
+          <li><a href="#check">The check</a></li>
+          <li><a href="#teams">Teams</a></li>
+          <li><a href="pricing.html">Pricing</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
+      <div class="header-cta">
+        <a class="btn ghost" data-demo-link>Book a demo</a>
+        <a class="btn" data-app-link="/signup">Start free</a>
+      </div>
+    </div>
+    <div class="wrap"><hr class="rule" /></div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="label kicker">Masthead for DevRel and engineering blogs</p>
+          <h1 id="hero-title">Engineering posts, from notes to <em>pull request.</em></h1>
+          <p class="lede">A writer brings an idea and their notes. Claude, on your own Anthropic key, takes it through outline, draft, a confidentiality check, a diagram thumbnail and social copy. The post arrives as a pull request on your blog's repo.</p>
+          <div class="btn-row">
+            <a class="btn" data-app-link="/signup">Start free</a>
+            <a class="btn ghost" data-demo-link>Book a demo</a>
+          </div>
+          <ul class="hero-meta label">
+            <li>Your key, no markup</li>
+            <li>Any MDX blog in git</li>
+            <li>Nothing ships unchecked</li>
+          </ul>
+        </div>
+
+        <figure class="studio reveal" aria-label="The Masthead board: posts move from idea to published in six columns">
+          <div class="studio-top" aria-hidden="true">
+            <span class="brand-sm">Masthead</span>
+            <span class="pills">
+              <span class="pill"><span class="dot"></span>Claude: your key</span>
+              <span class="pill"><span class="dot"></span>repo: eng-blog</span>
+            </span>
+          </div>
+          <div class="studio-body" aria-hidden="true">
+            <div class="s-head">
+              <div>
+                <p class="s-eyebrow">Campaign board</p>
+                <p class="s-h">Every post, idea to published</p>
+              </div>
+              <span class="s-btn">+ New idea</span>
+            </div>
+            <div class="board-wrap">
+              <div class="board">
+                <div class="col">
+                  <div class="col-head"><span>Ideas</span><span>2</span></div>
+                  <div class="post-card"><p class="t">Why our feature flags live in Postgres</p><div class="m"><span>No campaign</span></div></div>
+                  <div class="post-card"><p class="t">Retiring the shared job queue</p><div class="m"><span>Notes added</span></div></div>
+                </div>
+                <div class="col">
+                  <div class="col-head"><span>Outlined</span><span>1</span></div>
+                  <div class="post-card"><p class="camp">System Design 101 · Part 2</p><p class="t">Streaming an agent's answer through three services</p><div class="m"><span>Outline approved</span></div></div>
+                </div>
+                <div class="col">
+                  <div class="col-head"><span>Drafted</span><span>1</span></div>
+                  <div class="post-card"><p class="t">What a cold start costs in a serverless API</p><div class="m"><span>Awaiting check</span></div></div>
+                </div>
+                <div class="col">
+                  <div class="col-head"><span>Checked</span><span>1</span></div>
+                  <div class="post-card"><p class="t">Rate limits that explain themselves</p><div class="m"><span class="badge review">review</span></div></div>
+                </div>
+                <div class="col">
+                  <div class="col-head"><span>Scheduled</span><span>1</span></div>
+                  <div class="post-card"><p class="camp">Launch week</p><p class="t">Backfills without downtime</p><div class="m"><span>Goes live 21 Oct</span><span class="badge clear">clear</span></div></div>
+                </div>
+                <div class="col">
+                  <div class="col-head"><span>Published</span><span>1</span></div>
+                  <div class="post-card live"><p class="camp">System Design 101 · Part 1</p><p class="t">Idempotency keys, from the client in</p><div class="m"><span>Published 6 Oct</span><span class="badge clear">clear</span></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- The problem -->
+    <section class="section dimmed" aria-labelledby="problem-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="label kicker">01 · The problem</p>
+          <h2 id="problem-title">Good engineering stories stall between the design doc and the blog.</h2>
+        </div>
+        <div class="columns">
+          <article>
+            <p class="num" aria-hidden="true">i.</p>
+            <h3>Stuck in a doc</h3>
+            <p>The design doc already has the story. Turning it into a post takes a week of evenings, so it waits for a quiet sprint that never comes.</p>
+          </article>
+          <article>
+            <p class="num" aria-hidden="true">ii.</p>
+            <h3>Review by comment thread</h3>
+            <p>Engineering checks the facts, legal checks the names, marketing checks the tone. Each pass is another round of comments on another copy.</p>
+          </article>
+          <article>
+            <p class="num" aria-hidden="true">iii.</p>
+            <h3>One hostname too many</h3>
+            <p>Posts about real systems carry real details: a customer's name, an internal host, a latency figure nobody signed off. One slip and the post comes down.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- The seven steps -->
+    <section class="section dark" id="flow" aria-labelledby="flow-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="label kicker">02 · The desk</p>
+          <h2 id="flow-title">Seven steps. One post. One pull request.</h2>
+        </div>
+
+        <div class="flow">
+          <ol class="steps" role="tablist" aria-label="The seven steps" aria-orientation="vertical">
+            <li role="presentation"><button class="step-tab" role="tab" id="tab-idea" aria-controls="panel-idea" aria-selected="true"><span class="n">1</span>Idea</button></li>
+            <li role="presentation"><button class="step-tab" role="tab" id="tab-outline" aria-controls="panel-outline" aria-selected="false" tabindex="-1"><span class="n">2</span>Outline</button></li>
+            <li role="presentation"><button class="step-tab" role="tab" id="tab-draft" aria-controls="panel-draft" aria-selected="false" tabindex="-1"><span class="n">3</span>Draft</button></li>
+            <li role="presentation"><button class="step-tab" role="tab" id="tab-check" aria-controls="panel-check" aria-selected="false" tabindex="-1"><span class="n">4</span>Check</button></li>
+            <li role="presentation"><button class="step-tab" role="tab" id="tab-thumb" aria-controls="panel-thumb" aria-selected="false" tabindex="-1"><span class="n">5</span>Thumbnail</button></li>
+            <li role="presentation"><button class="step-tab" role="tab" id="tab-social" aria-controls="panel-social" aria-selected="false" tabindex="-1"><span class="n">6</span>Distribution</button></li>
+            <li role="presentation"><button class="step-tab" role="tab" id="tab-publish" aria-controls="panel-publish" aria-selected="false" tabindex="-1"><span class="n">7</span>Pull request</button></li>
+          </ol>
+
+          <div>
+            <!-- 1 Idea -->
+            <section class="step-panel" id="panel-idea" role="tabpanel" aria-labelledby="tab-idea" tabindex="0">
+              <div class="caption">
+                <h3>Start with what you know</h3>
+                <p>An idea, your notes, and the names the post may mention. The notes are the only source of facts and numbers.</p>
+              </div>
+              <div class="studio" aria-hidden="true">
+                <div class="studio-body">
+                  <div class="s-head"><div><p class="s-eyebrow">Step 1</p><p class="s-h">The idea and your notes</p></div></div>
+                  <div style="display:grid;gap:12px">
+                    <div class="s-field">The idea<div class="s-input">How we stream an agent's answer through three services without stalls</div></div>
+                    <div class="s-field">Notes and source material<div class="s-input tall">Gateway buffered SSE until the response closed. Fixed by flushing per event.
+p95 time to first token: 2.1 s before, 380 ms after.
+Agent service holds no state; history lives in Postgres.</div></div>
+                    <div class="s-field">Names allowed to appear<div class="s-input">Anthropic, Postgres</div></div>
+                    <div class="s-row"><span class="s-btn ghost">Save</span><span class="s-btn">Generate outline →</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 2 Outline -->
+            <section class="step-panel" id="panel-outline" role="tabpanel" aria-labelledby="tab-outline" tabindex="0" hidden>
+              <div class="caption">
+                <h3>An outline you can edit</h3>
+                <p>Title, slug, summary, tags, TL;DR and sections, drafted from your notes. Change any of it before a word of the post exists.</p>
+              </div>
+              <div class="studio" aria-hidden="true">
+                <div class="studio-body">
+                  <div class="s-head"><div><p class="s-eyebrow">Step 2</p><p class="s-h">Outline</p></div><span class="s-tag">streaming · architecture · sse</span></div>
+                  <div style="display:grid;gap:12px">
+                    <div class="s-field">Title<div class="s-input">Streaming an agent's answer through three services</div></div>
+                    <div class="s-field">Slug<div class="s-input" style="font-family:var(--mono);font-size:13px">streaming-agent-answers</div></div>
+                    <ol class="outline-list">
+                      <li><strong>Where the stall lived</strong><ul><li>The gateway held every event until the response closed</li></ul></li>
+                      <li><strong>Flushing at every hop</strong><ul><li>Per-event flush in the gateway</li><li>Keeping the agent stateless</li></ul></li>
+                      <li><strong>What changed for readers</strong><ul><li>p95 first token: 2.1 s to 380 ms, from the notes</li></ul></li>
+                    </ol>
+                    <div class="s-row"><span class="s-btn ghost">Save outline</span><span class="s-btn">Approve and go to the draft →</span></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3 Draft -->
+            <section class="step-panel" id="panel-draft" role="tabpanel" aria-labelledby="tab-draft" tabindex="0" hidden>
+              <div class="caption">
+                <h3>A draft in your own components</h3>
+                <p>The body streams in as MDX, written with the components your blog already has: callouts, figures, diagrams.</p>
+              </div>
+              <div class="studio" aria-hidden="true">
+                <div class="studio-body">
+                  <div class="s-head"><div><p class="s-eyebrow">Step 3</p><p class="s-h">Draft</p></div><span class="s-eyebrow">Writing with Claude</span></div>
+<pre class="code draft-code" data-stream>---
+title: "Streaming an agent's answer through three services"
+series: "System Design 101"
+seriesOrder: 2
+---
+
+The first token used to arrive after 2.1 seconds.
+Most of that wait was a buffer we added ourselves.
+
+&lt;Callout kind="note"&gt;
+  Every hop has to flush. One buffering proxy and the
+  reader waits for the whole answer.
+&lt;/Callout&gt;
+
+## Where the stall lived
+
+&lt;Mermaid chart={`flowchart LR
+  Client --&gt; Gateway --&gt; Agent --&gt; Model`} /&gt;
+
+The gateway collected server-sent events until the
+response closed, then sent them all at once.</pre>
+                </div>
+              </div>
+            </section>
+
+            <!-- 4 Check -->
+            <section class="step-panel" id="panel-check" role="tabpanel" aria-labelledby="tab-check" tabindex="0" hidden>
+              <div class="caption">
+                <h3>Checked before anyone reviews it</h3>
+                <p>The draft is read for unapproved names, internal details, secrets, security weaknesses and numbers that aren't in your notes. The MDX is compiled too, so a broken post can't ship.</p>
+              </div>
+              <div class="studio" aria-hidden="true">
+                <div class="studio-body">
+                  <div class="s-head"><div><p class="s-eyebrow">Step 4</p><p class="s-h">Confidentiality and fact check</p></div></div>
+                  <div class="s-row" style="margin-bottom:12px"><span class="badge review">Needs your review</span><span class="s-eyebrow">2 findings</span></div>
+                  <ul class="findings">
+                    <li class="finding medium"><div class="s-row"><span class="sev">medium</span><span class="s-tag">unverified-number</span></div><q>cut p99 latency by 80%</q><div>No p99 figure appears in your notes.</div><div class="sug">Suggestion: use the p95 numbers from the notes.</div></li>
+                    <li class="finding"><div class="s-row"><span class="sev">low</span><span class="s-tag">claim</span></div><q>every load balancer closes idle SSE connections after 60 seconds</q><div>A claim about third-party defaults that varies by provider.</div><div class="sug">Suggestion: name the setting instead of a universal number.</div></li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+
+            <!-- 5 Thumbnail -->
+            <section class="step-panel" id="panel-thumb" role="tabpanel" aria-labelledby="tab-thumb" tabindex="0" hidden>
+              <div class="caption">
+                <h3>A diagram, not stock art</h3>
+                <p>An architecture diagram of the system the post explains, drawn in your blog's palette.</p>
+              </div>
+              <div class="studio">
+                <div class="studio-body">
+                  <div class="s-head" aria-hidden="true"><div><p class="s-eyebrow">Step 5</p><p class="s-h">Thumbnail diagram</p></div><span class="s-btn ghost">Redesign</span></div>
+                  <div class="thumb-frame">
+                    <svg viewBox="0 0 480 300" role="img" aria-label="Thumbnail diagram: client, gateway, agent and model in a row, with Postgres under the agent">
+                      <rect width="480" height="300" fill="#14213a"/>
+                      <g stroke="#f2ede2" stroke-opacity=".08">
+                        <path d="M0 60H480M0 120H480M0 180H480M0 240H480M96 0V300M192 0V300M288 0V300M384 0V300"/>
+                      </g>
+                      <text x="24" y="36" fill="#d5d0c3" font-family="Geist Mono, monospace" font-size="11" letter-spacing="1.5">SYSTEM DESIGN 101 · PART 2</text>
+                      <rect x="270" y="196" width="190" height="88" rx="6" fill="none" stroke="#a9c1d6" stroke-dasharray="4 4" stroke-opacity=".6"/>
+                      <text x="282" y="276" fill="#a9c1d6" font-family="Geist Mono, monospace" font-size="10">STATE</text>
+                      <g font-family="Geist, sans-serif" font-size="13" text-anchor="middle">
+                        <rect x="24" y="120" width="88" height="44" rx="5" fill="#24375a" stroke="#d5d0c3" stroke-opacity=".35"/>
+                        <text x="68" y="147" fill="#f2ede2">Client</text>
+                        <rect x="140" y="120" width="96" height="44" rx="5" fill="#24375a" stroke="#d5d0c3" stroke-opacity=".35"/>
+                        <text x="188" y="147" fill="#f2ede2">Gateway</text>
+                        <rect x="266" y="114" width="96" height="56" rx="5" fill="#b4673d"/>
+                        <text x="314" y="139" fill="#0c1528" font-weight="600">Agent</text>
+                        <text x="314" y="156" fill="#0c1528" font-size="10.5">stateless</text>
+                        <rect x="386" y="120" width="76" height="44" rx="5" fill="#f2ede2"/>
+                        <text x="424" y="147" fill="#0c1528">Model</text>
+                        <rect x="270" y="212" width="88" height="40" rx="20" fill="#0c1528" stroke="#a9c1d6"/>
+                        <text x="314" y="237" fill="#f2ede2">Postgres</text>
+                      </g>
+                      <g fill="none" stroke-width="2">
+                        <path d="M112 142H138" stroke="#b4673d"/>
+                        <path d="M236 142H264" stroke="#b4673d"/>
+                        <path d="M362 142H384" stroke="#b4673d"/>
+                        <path d="M314 170V210" stroke="#a9c1d6" stroke-dasharray="4 4"/>
+                      </g>
+                      <text x="24" y="84" fill="#f2ede2" font-family="Newsreader, Georgia, serif" font-size="24">Flush at every hop</text>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 6 Distribution -->
+            <section class="step-panel" id="panel-social" role="tabpanel" aria-labelledby="tab-social" tabindex="0" hidden>
+              <div class="caption">
+                <h3>Copy for every channel</h3>
+                <p>A LinkedIn post, an X thread and a newsletter blurb, written from the post and linked to it.</p>
+              </div>
+              <div class="studio" aria-hidden="true">
+                <div class="studio-body">
+                  <div class="s-head"><div><p class="s-eyebrow">Step 6</p><p class="s-h">Distribution copy</p></div></div>
+                  <div class="copy-blocks">
+                    <div class="copy-block"><div class="s-row"><span class="s-h" style="font-size:17px">LinkedIn</span><span style="flex:1"></span><span class="s-btn ghost">Copy</span></div><div class="s-input">Our agent's first token took 2.1 seconds. The model wasn't slow. A gateway was holding every event until the answer finished.
+
+Part 2 of System Design 101 walks through the fix.</div></div>
+                    <div class="copy-block"><div class="s-row"><span class="s-h" style="font-size:17px">X thread</span><span style="flex:1"></span><span class="s-btn ghost">Copy</span></div><div class="s-input">1/ Streaming only works if every hop flushes. Ours didn't.
+
+2/ The gateway buffered SSE until the response closed. p95 first token went from 2.1 s to 380 ms once it stopped.</div></div>
+                    <div class="copy-block"><div class="s-row"><span class="s-h" style="font-size:17px">Newsletter</span><span style="flex:1"></span><span class="s-btn ghost">Copy</span></div><div class="s-input">This week: where a streaming answer stalls, and why the fix was one flush call in the gateway.</div></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 7 Publish -->
+            <section class="step-panel" id="panel-publish" role="tabpanel" aria-labelledby="tab-publish" tabindex="0" hidden>
+              <div class="caption">
+                <h3>A pull request, not a push</h3>
+                <p>The post and its thumbnail land on a branch in your repo. Your team reviews and merges the way it already does.</p>
+              </div>
+              <div class="pr" aria-hidden="true">
+                <div class="pr-head">
+                  <div class="s-row"><span class="pr-state">Open</span><span class="s-eyebrow">Opened by Masthead for Ana</span></div>
+                  <p class="pr-title">Post: Streaming an agent's answer through three services</p>
+                  <p class="s-eyebrow"><span class="branch">masthead/streaming-agent-answers</span> into <span class="branch">main</span></p>
+                </div>
+                <ul class="pr-rows">
+                  <li><span class="file">content/blog/streaming-agent-answers.mdx</span><span class="add">new file</span></li>
+                  <li><span class="file">public/blog/streaming-agent-answers/thumbnail.svg</span><span class="add">new file</span></li>
+                  <li><span class="ok">Confidentiality check: clear</span><span class="add">current text</span></li>
+                  <li><span class="ok">Reviewer sign-off: Sam</span><span class="add">approved</span></li>
+                </ul>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- The confidentiality check -->
+    <section class="section" id="check" aria-labelledby="check-title">
+      <div class="wrap split">
+        <div>
+          <p class="label kicker">03 · The check</p>
+          <h2 id="check-title">Catch the internal detail before the internet does.</h2>
+          <p class="lede">DevRel teams write about real systems. Every draft is read against the author's notes and the post's list of approved names before a reviewer sees it.</p>
+          <ul class="ticks">
+            <li><span><strong>Company and product names</strong> that aren't on the approved list</span></li>
+            <li><span><strong>Internal hostnames</strong>, IP addresses and service URLs</span></li>
+            <li><span><strong>Secrets</strong>: API keys, tokens, private keys, database URLs with passwords</span></li>
+            <li><span><strong>Security weaknesses</strong> in systems that may still be live</span></li>
+            <li><span><strong>Numbers</strong> that don't appear in the author's notes</span></li>
+            <li><span><strong>Personal data</strong> and shaky claims about other products</span></li>
+          </ul>
+          <p style="margin-top:24px">High-severity findings block the post until they're fixed. Medium and low findings need a person to confirm them. Change the draft and it needs a fresh check.</p>
+        </div>
+
+        <div class="reveal">
+          <div class="studio">
+            <div class="studio-body" aria-hidden="true">
+              <div class="s-head"><div><p class="s-eyebrow">Step 4</p><p class="s-h">Confidentiality and fact check</p></div><span class="s-btn">Check again</span></div>
+              <div class="s-row" style="margin-bottom:12px"><span class="badge block">Blocked</span><span class="s-eyebrow">5 findings</span></div>
+              <ul class="findings">
+                <li class="finding high"><div class="s-row"><span class="sev">high</span><span class="s-tag">confidential</span></div><q>the Northwind rollout last spring</q><div>Northwind isn't on this post's approved names.</div><div class="sug">Suggestion: “a logistics customer”.</div></li>
+                <li class="finding high"><div class="s-row"><span class="sev">high</span><span class="s-tag">secret</span></div><q>sk-ant-api03-Xq7…</q><div>This looks like an Anthropic API key.</div><div class="sug">Suggestion: remove it, and rotate it if it was ever real.</div></li>
+                <li class="finding high"><div class="s-row"><span class="sev">high</span><span class="s-tag">security</span></div><q>the admin route trusts any caller inside the VPC</q><div>Describes a weakness that may still be open.</div><div class="sug">Suggestion: cut it, or confirm it's fixed and say so.</div></li>
+                <li class="finding medium"><div class="s-row"><span class="sev">medium</span><span class="s-tag">confidential</span></div><q>orders-api.internal:8080</q><div>An internal host name.</div><div class="sug">Suggestion: “the orders service”.</div></li>
+                <li class="finding medium"><div class="s-row"><span class="sev">medium</span><span class="s-tag">unverified-number</span></div><q>cut p99 latency by 80%</q><div>No p99 figure appears in your notes.</div><div class="sug">Suggestion: use the p95 numbers from the notes.</div></li>
+              </ul>
+            </div>
+            <p class="sr-only">Example check result: blocked, with five findings. Three high: an unapproved company name, an API key and a security weakness. Two medium: an internal hostname and a latency number that isn't in the notes.</p>
+          </div>
+          <p style="margin-top:18px;text-align:right"><span class="hand-note">caught before review</span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pull-request publishing -->
+    <section class="section dimmed" id="publishing" aria-labelledby="pr-title">
+      <div class="wrap split flip">
+        <div class="reveal">
+          <div class="pr">
+            <div class="pr-head">
+              <div class="s-row"><span class="pr-state">Open</span><span class="s-eyebrow">Opened by Masthead</span></div>
+              <p class="pr-title">Post: Backfills without downtime</p>
+              <p class="s-eyebrow"><span class="branch">masthead/backfills-without-downtime</span> into <span class="branch">main</span></p>
+            </div>
+            <ul class="pr-rows">
+              <li><span class="file">src/content/blog/backfills-without-downtime.mdx</span><span class="add">new file</span></li>
+              <li><span class="file">public/blog/backfills-without-downtime/thumbnail.svg</span><span class="add">new file</span></li>
+              <li><span class="ok">Confidentiality check: clear</span><span class="add">current text</span></li>
+              <li><span class="ok">MDX compiles</span><span class="add">your components</span></li>
+            </ul>
+          </div>
+<pre class="code" style="margin-top:16px" aria-label="Example blog settings"><span class="c"># blog-studio.toml, in your blog's repo</span>
+<span class="k">[paths]</span>
+posts = "src/content/blog"
+thumbnails = "public/blog"
+
+<span class="k">[mdx]</span>
+components = ["Callout", "Figure", "Mermaid"]
+
+<span class="k">[git]</span>
+protected_branches = ["main"]</pre>
+        </div>
+        <div>
+          <p class="label kicker">04 · Publishing</p>
+          <h2 id="pr-title">Every post ends as a pull request on your repo.</h2>
+          <p class="lede">Masthead writes the MDX file and its thumbnail into the folders your blog already uses, on a branch of their own. It never pushes to main. Your previews, CI and reviewers work as they do today.</p>
+          <ul class="ticks">
+            <li><span>Frontmatter your blog already reads: title, summary, tags, series and draft</span></li>
+            <li><span>Your components, declared once and used in every draft</span></li>
+            <li><span>Protected branches stay protected</span></li>
+          </ul>
+          <p class="label" style="margin-top:28px">Works with any MDX blog in git</p>
+          <ul class="frameworks">
+            <li>Next.js</li><li>Astro</li><li>Vite</li><li>Your own setup</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bring your own key -->
+    <section class="section dark night" id="byok" aria-labelledby="byok-title">
+      <div class="wrap split">
+        <div>
+          <p class="label kicker">05 · Your key</p>
+          <h2 id="byok-title">Your Anthropic key. Your bill. No markup.</h2>
+          <p class="lede">Every model call runs on your team's own Anthropic API key, billed by Anthropic at Anthropic's rates. Masthead charges for seats, never for tokens.</p>
+          <ul class="ticks">
+            <li><span>Model usage sits on the account you already have</span></li>
+            <li><span>The larger model writes; a smaller one checks and drafts social copy</span></li>
+            <li><span>No usage tiers to outgrow</span></li>
+          </ul>
+        </div>
+        <div class="reveal">
+          <div class="studio">
+            <div class="studio-top" aria-hidden="true"><span class="brand-sm">Settings · Model</span><span class="pills"><span class="pill"><span class="dot"></span>Connected</span></span></div>
+            <div class="studio-body keycard">
+              <div class="s-field">Anthropic API key<div class="s-input" style="font-family:var(--mono);font-size:13px">sk-ant-••••••••••••••••••••4f2a</div></div>
+              <table class="model-table">
+                <caption class="sr-only">Which Claude model each step uses</caption>
+                <thead><tr><th scope="col">Step</th><th scope="col" style="text-align:right">Model</th></tr></thead>
+                <tbody>
+                  <tr><td>Outline</td><td>Claude Sonnet</td></tr>
+                  <tr><td>Draft</td><td>Claude Sonnet</td></tr>
+                  <tr><td>Confidentiality check</td><td>Claude Haiku</td></tr>
+                  <tr><td>Thumbnail</td><td>Claude Sonnet</td></tr>
+                  <tr><td>Distribution copy</td><td>Claude Haiku</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Teams -->
+    <section class="section" id="teams" aria-labelledby="teams-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="label kicker">06 · For teams</p>
+          <h2 id="teams-title">One desk for writers, reviewers and editors.</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <p class="plan-chip" data-feature-plan="review_workflow">Team</p>
+            <h3>Reviewers</h3>
+            <p>Name who signs off. A post can't ship until they do.</p>
+          </article>
+          <article>
+            <p class="plan-chip" data-feature-plan="roles">Team</p>
+            <h3>Roles</h3>
+            <p>Owner, editor, writer and reviewer, each with the access the job needs.</p>
+          </article>
+          <article>
+            <p class="plan-chip" data-feature-plan="scheduling">Team</p>
+            <h3>Scheduling</h3>
+            <p>Pick a date. The post goes out when it arrives.</p>
+          </article>
+          <article>
+            <p class="plan-chip" data-feature-plan="campaigns">Team</p>
+            <h3>Campaigns and series</h3>
+            <p>Group a launch week, or number a series so each part carries its place in it.</p>
+          </article>
+          <article>
+            <p class="plan-chip" data-feature-plan="brand_voice">Team</p>
+            <h3>Brand voice</h3>
+            <p>One voice guide and one component guide, used in every draft by every writer.</p>
+          </article>
+          <article>
+            <p class="plan-chip" data-feature-plan="audit_log">Business</p>
+            <h3>Approval rules and audit log</h3>
+            <p>Required reviewers per repo, and a record of every draft, check and publish.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing teaser -->
+    <section class="section dark" aria-labelledby="pricing-title">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="label kicker">07 · Pricing</p>
+          <h2 id="pricing-title">Priced per seat. Model usage stays on your key.</h2>
+        </div>
+        <div class="teaser" data-plans-teaser>
+          <div><p class="label">Free</p><p class="amount">$0</p><p>One writer, one blog.</p></div>
+          <div><p class="label">Team</p><p class="amount">Per seat</p><p>Write, review and schedule as a team.</p></div>
+          <div><p class="label">Business</p><p class="amount">Per seat</p><p>Governance for companies that publish at scale.</p></div>
+        </div>
+        <div class="btn-row" style="margin-top:36px">
+          <a class="btn" href="pricing.html">Compare plans</a>
+          <a class="btn ghost" data-app-link="/signup">Start free</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="wrap faq-grid">
+        <div>
+          <p class="label kicker">08 · Questions</p>
+          <h2 id="faq-title" style="font-size:clamp(2.1rem,4.6vw,3.5rem)">Asked and answered.</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>Which blogs does Masthead work with?</summary>
+            <div class="answer"><p>Any blog whose posts are MDX files in a git repository: Next.js, Astro, Vite or your own build. You tell Masthead where posts and thumbnails live and which components the blog has.</p></div>
+          </details>
+          <details>
+            <summary>Does Masthead push to our main branch?</summary>
+            <div class="answer"><p>No. Each post arrives as a pull request on its own branch. Protected branches stay protected, and you merge when you're ready.</p></div>
+          </details>
+          <details>
+            <summary>Why do we bring our own Anthropic key?</summary>
+            <div class="answer"><p>So model usage is billed to you by Anthropic at Anthropic's rates, with nothing added. Masthead charges per seat.</p></div>
+          </details>
+          <details>
+            <summary>What does the confidentiality check look for?</summary>
+            <div class="answer"><p>Company and product names outside the post's approved list, internal hostnames and URLs, secrets, security weaknesses, personal data, and numbers that aren't in the author's notes. It also compiles the MDX.</p></div>
+          </details>
+          <details>
+            <summary>Can the check miss something?</summary>
+            <div class="answer"><p>Yes. It combines a model review with pattern checks for secrets and internal hosts, and neither is perfect. It catches the common slips early so your reviewers can spend their time on the post itself.</p></div>
+          </details>
+          <details>
+            <summary>Will drafts sound like our blog?</summary>
+            <div class="answer"><p>Drafts follow your shared voice guide, your component guide and a reference post you choose. Writers edit every outline and draft before anything is checked or published.</p></div>
+          </details>
+          <details>
+            <summary>Does Masthead post to LinkedIn and X for us?</summary>
+            <div class="answer"><p>No. It writes the LinkedIn post, X thread and newsletter blurb for each post. You copy them and post them yourself.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Closing -->
+    <section class="section tight dimmed" aria-labelledby="close-title">
+      <div class="wrap closing">
+        <hr class="rule" style="margin-bottom:40px" />
+        <h2 id="close-title">Your next post is already in someone's notes.</h2>
+        <div class="btn-row">
+          <a class="btn" data-app-link="/signup">Start free</a>
+          <a class="btn ghost" data-demo-link>Book a demo</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer dark night">
+    <div class="wrap">
+      <hr class="rule" />
+      <div class="footer-grid">
+        <div>
+          <img src="assets/masthead-wordmark-reversed.svg" alt="Masthead" width="200" height="30" />
+          <p>The publishing desk for engineering teams.</p>
+        </div>
+        <div>
+          <h2>Product</h2>
+          <ul>
+            <li><a href="index.html#flow">How it works</a></li>
+            <li><a href="index.html#check">The check</a></li>
+            <li><a href="index.html#publishing">Publishing</a></li>
+            <li><a href="pricing.html">Pricing</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Company</h2>
+          <ul>
+            <li><a href="brand.html">Brand</a></li>
+            <li><a data-demo-link>Book a demo</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Get started</h2>
+          <ul>
+            <li><a data-app-link="/signup">Start free</a></li>
+            <li><a data-app-link="/login">Sign in</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-base">
+        <p>© <span data-year>2026</span> Masthead</p>
+        <p>Claude and Anthropic are trademarks of Anthropic.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

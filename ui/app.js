@@ -1,4 +1,4 @@
-// Blog Studio UI. Plain DOM, no framework: every value from the server is set as text, never as HTML.
+// Masthead UI. Plain DOM, no framework: every value from the server is set as text, never as HTML.
 
 const STATUSES = [
   ["idea", "Ideas"],
@@ -35,22 +35,41 @@ function h(tag, attrs = {}, ...children) {
   return el
 }
 const $ = (sel) => document.querySelector(sel)
+/** replaceChildren that skips null and false, like h() does. */
+const fill = (el, ...kids) => el.replaceChildren(...kids.flat().filter((k) => k !== null && k !== undefined && k !== false))
 
-function toast(message, kind = "info") {
-  const el = h("div", { class: `toast ${kind === "error" ? "error" : ""}` }, message)
+function toast(message, kind = "info", action = null) {
+  const el = h("div", { class: `toast ${kind === "error" ? "error" : ""}` }, message, action ? [" ", h("a", { href: action.href }, action.label)] : null)
   $("#toasts").append(el)
   setTimeout(() => el.remove(), kind === "error" ? 9000 : 4000)
+}
+
+// The chosen workspace and blog are remembered per browser; the server checks membership on every request.
+const pref = {
+  get: (k) => { try { return localStorage.getItem(`masthead.${k}`) } catch { return null } },
+  set: (k, v) => { try { v == null ? localStorage.removeItem(`masthead.${k}`) : localStorage.setItem(`masthead.${k}`, String(v)) } catch { /* private window */ } },
+}
+function scopeHeaders() {
+  const out = {}
+  if (pref.get("workspace")) out["x-masthead-workspace"] = pref.get("workspace")
+  if (pref.get("site")) out["x-masthead-site"] = pref.get("site")
+  return out
+}
+
+class ApiError extends Error {
+  constructor(message, status, upgradeTo) { super(message); this.status = status; this.upgradeTo = upgradeTo }
 }
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
     ...options,
-    headers: { "content-type": "application/json", ...(options.headers || {}) },
+    headers: { "content-type": "application/json", ...scopeHeaders(), ...(options.headers || {}) },
     body: options.body ? JSON.stringify(options.body) : undefined,
   })
   if (res.status === 204) return null
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : `Request failed (${res.status})`)
+  if (res.status === 401) { renderSignIn(); throw new ApiError("Sign in to continue.", 401) }
+  if (!res.ok) throw new ApiError(typeof data.detail === "string" ? data.detail : `Request failed (${res.status})`, res.status, res.headers.get("x-upgrade-to"))
   return data
 }
 
@@ -62,12 +81,20 @@ async function busy(button, label, fn) {
   try {
     return await fn()
   } catch (e) {
-    toast(e.message, "error")
+    reportError(e)
   } finally {
     button.disabled = false
     button.replaceChildren(...original)
   }
 }
+
+function reportError(e) {
+  if (e.status === 401) return
+  toast(e.message, "error", e.status === 402 && state.info?.permissions.includes("manage_billing") ? { href: "#/settings/billing", label: "See plans" } : null)
+}
+const can = (perm) => !!state.info?.permissions.includes(perm)
+const has = (feature) => !!state.info?.plan.features.includes(feature)
+const cloud = () => state.info?.mode === "cloud"
 
 const money = (n) => `$${(n || 0).toFixed(n >= 1 ? 2 : 4)}`
 const fmtDate = (iso) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "")
@@ -79,6 +106,8 @@ const campaignName = (id) => state.campaigns.find((c) => c.id === id)?.name
 async function load() {
   const [info, campaigns, posts] = await Promise.all([api("/api/state"), api("/api/campaigns"), api("/api/posts")])
   Object.assign(state, { info, campaigns, posts })
+  pref.set("workspace", info.workspace.id)
+  pref.set("site", info.site?.id ?? null)
 }
 
 function upsert(post) {
@@ -89,15 +118,40 @@ function upsert(post) {
 }
 
 // Chrome --------------------------------------------------------------------
+function switcher(label, items, current, key) {
+  const select = h("select", { class: "switch", "aria-label": label },
+    ...items.map((i) => h("option", { value: i.id, selected: i.id === current }, i.name)))
+  select.addEventListener("change", async () => {
+    pref.set(key, select.value)
+    if (key === "workspace") pref.set("site", null)
+    await load(); location.hash = "#/"; render()
+  })
+  return select
+}
+
 function renderStatus() {
   const { info } = state
-  document.title = `Blog Studio · ${info.site_name}`
-  $(".brand").textContent = `Blog Studio · ${info.site_name}`
-  const ai = { ready: ["AI ready", false], fake: ["Fake AI mode", true], missing: ["No API credentials", true] }[info.ai]
-  $("#status").replaceChildren(
-    h("span", { class: `pill ${ai[1] ? "warn" : ""}`, title: ai[1] && info.ai === "missing" ? "Add ANTHROPIC_API_KEY to studio/.env, or run `ant auth login`, then restart." : null }, h("span", { class: "dot" }), ai[0]),
-    h("span", { class: `pill ${info.protected_branch ? "warn" : ""}`, title: info.protected_branch ? "Publishing is blocked on this branch because it deploys the live site." : "Publishing commits here. Nothing is pushed." }, h("span", { class: "dot" }), `branch: ${info.branch || "none"}`),
-    h("span", { class: "pill" }, `spent this month ${money(info.spend.month_usd)}`),
+  document.title = info.site_name ? `Masthead · ${info.site_name}` : "Masthead"
+  $(".brand").textContent = "Masthead"
+  const ai = { ready: ["AI ready", false], fake: ["Fake AI mode", true], missing: [cloud() ? "No API key" : "No API credentials", true] }[info.ai]
+  const aiPill = h(cloud() && can("manage_keys") ? "a" : "span", { class: `pill ${ai[1] ? "warn" : ""}`, href: cloud() && can("manage_keys") ? "#/settings/key" : null,
+    title: !cloud() && info.ai === "missing" ? "Add ANTHROPIC_API_KEY to .env, or run `ant auth login`, then restart." : null }, h("span", { class: "dot" }), ai[0])
+  if (!cloud()) {
+    $("#status").replaceChildren(
+      aiPill,
+      h("span", { class: `pill ${info.protected_branch ? "warn" : ""}`, title: info.protected_branch ? "Publishing is blocked on this branch because it deploys the live site." : "Publishing commits here. Nothing is pushed." }, h("span", { class: "dot" }), `branch: ${info.branch || "none"}`),
+      h("span", { class: "pill" }, `spent this month ${money(info.spend.month_usd)}`),
+    )
+    return
+  }
+  const workspaces = state.workspaces || [info.workspace]
+  fill($("#status"),
+    workspaces.length > 1 ? switcher("Workspace", workspaces, info.workspace.id, "workspace") : h("span", { class: "pill" }, info.workspace.name),
+    info.sites.length > 1 ? switcher("Blog", info.sites, info.site?.id, "site") : info.site ? h("span", { class: "pill" }, info.site.name) : null,
+    h("a", { class: "pill", href: "#/settings/billing" }, `${info.plan.name} plan${info.plan.status === "trialing" ? " · trial" : ""}`),
+    aiPill,
+    h("span", { class: "pill", title: info.user.name || info.user.login }, info.user.avatar_url ? h("img", { class: "avatar", src: info.user.avatar_url, alt: "" }) : null, info.user.login),
+    h("form", { method: "post", action: "/auth/logout", class: "inline" }, h("button", { class: "pill linkish", type: "submit" }, "Sign out")),
   )
 }
 
@@ -106,14 +160,14 @@ function renderSidebar() {
   const link = (id, label) =>
     h("button", { class: "side-link", "aria-current": String(state.filter === id), onclick: () => { state.filter = id; location.hash = "#/"; render() } },
       h("span", {}, label), h("span", { class: "count" }, counts(id)))
-  $("#sidebar").replaceChildren(
-    h("button", { class: "btn", onclick: newIdeaDialog }, "+ New idea"),
+  fill($("#sidebar"),
+    can("write") && state.info.site ? h("button", { class: "btn", onclick: newIdeaDialog }, "+ New idea") : null,
     h("div", { class: "side-section" },
       h("p", { class: "side-title" }, "Campaigns"),
       link("all", "All posts"),
       ...state.campaigns.map((c) => link(c.id, c.name)),
       link("none", "No campaign"),
-      h("button", { class: "link", style: "text-align:left;padding:6px 10px", onclick: newCampaignDialog }, "+ New campaign"),
+      can("campaigns") ? h("button", { class: "link", style: "text-align:left;padding:6px 10px", onclick: newCampaignDialog }, "+ New campaign") : null,
     ),
     h("div", { class: "side-section" },
       h("p", { class: "side-title" }, "AI spend"),
@@ -125,6 +179,12 @@ function renderSidebar() {
       h("p", { class: "small muted", style: "margin:0" }, `${state.info.site_posts.filter((p) => !p.draft).length} published · ${state.info.site_posts.filter((p) => p.draft).length} drafts`),
       state.info.blog_preview ? h("a", { class: "small", href: state.info.blog_preview, target: "_blank", rel: "noreferrer" }, "Open the blog on the dev server ↗") : null,
     ),
+    cloud() ? h("div", { class: "side-section" },
+      h("p", { class: "side-title" }, "Workspace"),
+      ...SETTINGS.filter(([, , perm]) => !perm || can(perm)).map(([key, label]) =>
+        h("a", { class: "side-link", href: `#/settings/${key}`, "aria-current": String(location.hash === `#/settings/${key}`) }, h("span", {}, label))),
+      h("button", { class: "link", style: "text-align:left;padding:6px 10px", onclick: newWorkspaceDialog }, "+ New workspace"),
+    ) : null,
   )
 }
 
@@ -200,6 +260,13 @@ function nextStep(p) {
 }
 
 function renderBoard() {
+  if (!state.info.site) {
+    $("#main").replaceChildren(h("div", { class: "card empty stack", style: "align-items:center" },
+      h("p", { class: "hand" }, "no blog connected yet"),
+      h("h2", {}, "Connect the repository your blog lives in"),
+      can("manage_sites") ? h("a", { class: "btn", href: "#/settings/sites" }, "Connect a blog") : h("p", { class: "muted" }, "An owner of this workspace can connect one.")))
+    return
+  }
   const posts = state.posts.filter((p) => state.filter === "all" || (state.filter === "none" ? !p.campaign_id : p.campaign_id === state.filter))
   const campaign = typeof state.filter === "number" ? state.campaigns.find((c) => c.id === state.filter) : null
   const head = h("div", { class: "panel-head", style: "margin-bottom:20px" },
@@ -207,7 +274,7 @@ function renderBoard() {
       h("h1", {}, campaign ? campaign.name : "Every post, idea to published"),
       campaign?.description ? h("p", { class: "muted", style: "margin:6px 0 0;max-width:60ch" }, campaign.description) : null),
     h("div", { class: "row" },
-      h("button", { class: "btn ghost small", onclick: (e) => busy(e.currentTarget, "Checking", async () => {
+      can("publish") && has("scheduling") && h("button", { class: "btn ghost small", onclick: (e) => busy(e.currentTarget, "Checking", async () => {
         const { published } = await api("/api/scheduler/run", { method: "POST" })
         await load(); render()
         toast(published.length ? `Published ${published.length} scheduled post(s).` : "Nothing is due today.")
@@ -216,7 +283,7 @@ function renderBoard() {
 
   if (!state.posts.length) {
     $("#main").replaceChildren(head, h("div", { class: "card empty" }, h("p", { class: "hand" }, "nothing on the board yet"),
-      h("p", { class: "muted" }, "Add an idea, and the Studio will take it through outline, draft, check and publish."),
+      h("p", { class: "muted" }, "Add an idea, and Masthead takes it through outline, draft, check and publish."),
       h("button", { class: "btn", onclick: newIdeaDialog }, "+ New idea")))
     return
   }
@@ -293,7 +360,7 @@ function ideaPanel(p) {
       }) }, p.outline ? "Regenerate outline →" : "Generate outline →"),
       h("span", { class: "spacer" }),
       !p.written ? h("button", { class: "link", style: "color:var(--ink-60)", onclick: async () => {
-        if (!confirm("Delete this post from the Studio? Nothing in the site changes.")) return
+        if (!confirm("Delete this post from Masthead? Nothing in the site changes.")) return
         try { await api(`/api/posts/${p.id}`, { method: "DELETE" }); state.posts = state.posts.filter((x) => x.id !== p.id); location.hash = "#/" } catch (e) { toast(e.message, "error") }
       } }, "Delete") : null),
   ]
@@ -400,10 +467,10 @@ function draftPanel(p) {
       h("button", { class: "btn ghost", onclick: (e) => busy(e.currentTarget, "Writing to the site", async () => {
         await save(p, { body: body.value })
         const post = upsert(await api(`/api/posts/${p.id}/preview`, { method: "POST" }))
-        toast(`Written to ${state.info.posts_dir} as a draft. It shows on the dev server only.`)
-        window.open(post.preview_url, "_blank", "noreferrer")
+        toast(cloud() ? "Draft pushed to its pull request. Your blog's preview deploy picks it up." : `Written to ${state.info.posts_dir} as a draft. It shows on the dev server only.`)
+        if (post.preview_url) window.open(post.preview_url, "_blank", "noreferrer")
         renderPost(p.id, "draft")
-      }) }, "Preview on the dev server ↗"),
+      }) }, cloud() ? "Preview in a pull request ↗" : "Preview on the dev server ↗"),
       h("span", { class: "spacer" }),
       h("button", { class: "link", onclick: () => go(p, "check") }, "Next: check →")),
   ]
@@ -449,7 +516,7 @@ function thumbPanel(p) {
   const img = p.thumb_spec ? h("img", { class: "thumb", src: `/api/posts/${p.id}/thumbnail.svg?v=${encodeURIComponent(p.updated_at)}`, alt: p.thumb_spec.title }) : h("div", { class: "callout" }, "No thumbnail yet.")
   return [
     h("div", { class: "panel-head" }, h("div", {}, h("p", { class: "eyebrow" }, "Step 5"), h("h2", {}, "Thumbnail diagram"))),
-    h("p", { class: "muted", style: "margin:0;max-width:70ch" }, "Claude designs the structure; the Studio draws it in your blog's thumbnail palette. It's written into the site when you preview or publish."),
+    h("p", { class: "muted", style: "margin:0;max-width:70ch" }, "Claude designs the structure, and Masthead draws it in your blog's thumbnail palette. It's written into the site when you preview or publish."),
     img,
     h("div", { class: "row" },
       h("button", { class: "btn", disabled: !p.body, onclick: (e) => busy(e.currentTarget, "Designing", async () => { upsert(await api(`/api/posts/${p.id}/thumbnail`, { method: "POST" })); await refreshInfo(); renderPost(p.id, "thumbnail") }) }, p.thumb_spec ? "Redesign" : "Design the thumbnail"),
@@ -476,13 +543,34 @@ function socialPanel(p) {
   ]
 }
 
+function reviewCard(p) {
+  const r = p.gate.review
+  if (!cloud() || !has("review_workflow")) return null
+  const mine = p.author_id === state.info.user.id
+  const note = h("textarea", { rows: 2, placeholder: "What should change" })
+  const decide = (decision) => (e) => busy(e.currentTarget, "Saving", async () => {
+    upsert(await api(`/api/posts/${p.id}/review`, { method: "POST", body: { decision, note: note.value } }))
+    renderPost(p.id, "publish")
+  })
+  return h("div", { class: "card stack" },
+    h("h3", {}, "Review"),
+    h("p", { class: "small muted", style: "margin:0" }, r.required ? `Needs ${r.required} approval${r.required > 1 ? "s" : ""} from someone other than the author. Any edit after approval needs approving again.` : "No approval is required on this blog."),
+    r.approved.length ? h("p", { style: "margin:0" }, `Approved by ${r.approved.join(", ")}`) : null,
+    ...r.changes.map((c) => h("div", { class: "callout warn" }, h("strong", {}, `${c.login} asked for changes: `), c.note || "No note.")),
+    can("review") && !mine && p.status !== "published" ? [note, h("div", { class: "row" },
+      h("button", { class: "btn", onclick: decide("approved") }, "Approve"),
+      h("button", { class: "btn ghost", onclick: decide("changes") }, "Request changes"))] : null)
+}
+
 function publishPanel(p) {
   const today = new Date().toISOString().slice(0, 10)
   const when = h("input", { type: "date", min: today, value: p.publish_at || today, style: "max-width:200px" })
-  const blocked = state.info.protected_branch
+  const blocked = !cloud() && state.info.protected_branch
   return [
     h("div", { class: "panel-head" }, h("div", {}, h("p", { class: "eyebrow" }, "Step 7"), h("h2", {}, p.status === "published" ? "Published" : "Schedule or publish"))),
-    p.gate.ready ? h("div", { class: "callout" }, `Ready. Publishing writes the post into ${state.info.posts_dir}, commits it on the current branch, and never pushes. Push and merge yourself to go live.`)
+    p.gate.ready ? h("div", { class: "callout" }, cloud()
+      ? "Ready. Publishing opens a pull request with the post and its thumbnail. Merge it to go live."
+      : `Ready. Publishing writes the post into ${state.info.posts_dir}, commits it on the current branch, and never pushes. Push and merge yourself to go live.`)
       : h("div", { class: "callout warn" }, h("strong", {}, "Not ready yet:"), h("ul", { class: "gate" }, ...p.gate.missing.map((m) => h("li", {}, m)))),
     blocked ? h("div", { class: "callout warn" }, `You're on ${state.info.branch}, which deploys the live site. Switch to a working branch before publishing.`) : null,
     p.last_error ? h("div", { class: "callout warn" }, h("strong", {}, "Last scheduled attempt failed: "), p.last_error) : null,
@@ -493,21 +581,27 @@ function publishPanel(p) {
       p.publish_at ? [h("dt", {}, "Scheduled for"), h("dd", {}, fmtDate(p.publish_at))] : null,
       p.published_at ? [h("dt", {}, "Published"), h("dd", {}, fmtDate(p.published_at))] : null,
       p.commit_sha ? [h("dt", {}, "Commit"), h("dd", { class: "mono" }, p.commit_sha)] : null,
-      p.public_url ? [h("dt", {}, "Live URL after push"), h("dd", { class: "mono" }, p.public_url)] : null),
-    p.status === "published" ? null : h("div", { class: "card stack" },
+      p.pr_url ? [h("dt", {}, "Pull request"), h("dd", {}, h("a", { href: p.pr_url, target: "_blank", rel: "noreferrer" }, p.pr_url.replace("https://github.com/", "")))] : null,
+      p.public_url ? [h("dt", {}, cloud() ? "Live URL after merge" : "Live URL after push"), h("dd", { class: "mono" }, p.public_url)] : null),
+    reviewCard(p),
+    p.status === "published" || !can("publish") ? null : !has("scheduling") ? h("div", { class: "card stack" }, h("h3", {}, "Schedule"),
+      h("p", { class: "small muted", style: "margin:0" }, "Scheduling is on the Team plan."), can("manage_billing") ? h("a", { href: "#/settings/billing" }, "See plans") : null) : h("div", { class: "card stack" },
       h("h3", {}, "Schedule"),
-      h("p", { class: "small muted", style: "margin:0" }, "While the Studio is running, it publishes due posts every minute. If it was closed, use “Publish what's due” on the board."),
+      h("p", { class: "small muted", style: "margin:0" }, cloud() ? "Due posts get their pull request on the morning they're due." : "While Masthead is running, it publishes due posts every minute. If it was closed, use “Publish what's due” on the board."),
       h("div", { class: "row" }, when,
         h("button", { class: "btn ghost", disabled: !p.gate.ready, onclick: (e) => busy(e.currentTarget, "Scheduling", async () => { upsert(await api(`/api/posts/${p.id}/schedule`, { method: "POST", body: { publish_at: when.value } })); toast(`Scheduled for ${fmtDate(when.value)}.`); renderPost(p.id, "publish") }) }, p.status === "scheduled" ? "Reschedule" : "Schedule"),
         p.status === "scheduled" ? h("button", { class: "link", onclick: (e) => busy(e.currentTarget, "Unscheduling", async () => { upsert(await api(`/api/posts/${p.id}/unschedule`, { method: "POST" })); renderPost(p.id, "publish") }) }, "Unschedule") : null)),
     h("div", { class: "row" },
-      h("button", { class: "btn", disabled: !p.gate.ready || blocked, onclick: (e) => busy(e.currentTarget, "Publishing", async () => {
-        if (!confirm(p.status === "published" ? "Commit the updated post?" : "Publish now? This commits the post on the current branch.")) return
-        upsert(await api(`/api/posts/${p.id}/publish`, { method: "POST" }))
+      can("publish") ? h("button", { class: "btn", disabled: !p.gate.ready || blocked, onclick: (e) => busy(e.currentTarget, "Publishing", async () => {
+        const ask = cloud() ? (p.status === "published" ? "Update the pull request with this version?" : "Open a pull request with this post?")
+          : (p.status === "published" ? "Commit the updated post?" : "Publish now? This commits the post on the current branch.")
+        if (!confirm(ask)) return
+        const post = upsert(await api(`/api/posts/${p.id}/publish`, { method: "POST" }))
         await refreshInfo()
-        toast("Committed. Push and merge when you're ready to go live.")
+        toast(cloud() ? "Pull request ready. Merge it to go live." : "Committed. Push and merge when you're ready to go live.", "info", post.pr_url ? { href: post.pr_url, label: "Open it" } : null)
         renderPost(p.id, "publish")
-      }) }, p.status === "published" ? "Commit an update" : "Publish now")),
+      }) }, cloud() ? (p.status === "published" ? "Update the pull request" : "Open the pull request") : (p.status === "published" ? "Commit an update" : "Publish now"))
+        : h("p", { class: "small muted" }, "Editors and owners publish.")),
   ]
 }
 
@@ -517,16 +611,240 @@ async function refreshInfo() {
   renderSidebar()
 }
 
+
+// Sign in ---------------------------------------------------------------------
+function renderSignIn() {
+  const error = /error=(\w+)/.exec(location.hash)?.[1]
+  const reasons = { denied: "GitHub sign-in was cancelled.", state: "That sign-in link expired or came from another tab. Try again.", expired: "That sign-in took too long. Try again.",
+    exchange: "GitHub didn't accept the sign-in. Try again.", profile: "GitHub didn't return your profile.", issuer: "That response didn't come from GitHub." }
+  document.body.classList.add("signed-out")
+  $("#status").replaceChildren()
+  $("#sidebar").replaceChildren()
+  $("#main").replaceChildren(h("div", { class: "card stack signin" },
+    h("p", { class: "eyebrow" }, "Masthead"),
+    h("h1", {}, "Sign in"),
+    error ? h("div", { class: "callout warn" }, reasons[error] || "Sign-in failed. Try again.") : null,
+    h("a", { class: "btn", href: `/auth/login?next=${encodeURIComponent("/#/")}` }, "Continue with GitHub"),
+    h("p", { class: "small muted", style: "margin:0" }, "Masthead reads your public GitHub profile only. Repository access is granted separately, per repository, through the Masthead GitHub App.")))
+}
+
+// Settings --------------------------------------------------------------------
+const SETTINGS = [
+  ["members", "Members", null],
+  ["sites", "Blogs", "manage_sites"],
+  ["key", "API key", "manage_keys"],
+  ["billing", "Billing", null],
+  ["audit", "Audit log", "view_audit"],
+]
+const ROLE_LABELS = { owner: "Owner", editor: "Editor", writer: "Writer", reviewer: "Reviewer" }
+
+function newWorkspaceDialog() {
+  dialog("New workspace", [h("label", { class: "field" }, "Name", h("input", { type: "text", name: "name", required: true, placeholder: "Developer relations" }))],
+    "Create workspace", async (data) => {
+      const ws = await api("/api/workspaces", { method: "POST", body: { name: data.get("name") } })
+      pref.set("workspace", ws.id); pref.set("site", null)
+      state.workspaces = (await api("/api/me")).workspaces
+      await load(); location.hash = "#/settings/sites"; render()
+    })
+}
+
+async function renderSettings(tab) {
+  const nav = h("nav", { class: "tabs", "aria-label": "Settings" }, ...SETTINGS.filter(([, , perm]) => !perm || can(perm)).map(([key, label]) =>
+    h("a", { class: "tab", href: `#/settings/${key}`, "aria-current": key === tab ? "page" : null }, label)))
+  const body = h("section", { class: "panel" }, h("p", { class: "muted" }, "Loading…"))
+  $("#main").replaceChildren(h("p", { class: "eyebrow" }, state.info.workspace.name), h("h1", {}, "Settings"), nav, body)
+  try {
+    const panel = { members: membersPanel, sites: sitesPanel, key: keyPanel, billing: billingPanel, audit: auditPanel }[tab] || membersPanel
+    fill(body, ...[await panel()].flat(2))
+  } catch (e) {
+    body.replaceChildren(h("div", { class: "callout warn" }, e.message, e.status === 402 && can("manage_billing") ? [" ", h("a", { href: "#/settings/billing" }, "See plans")] : null))
+  }
+}
+const rerender = () => render()
+
+async function membersPanel() {
+  const data = await api("/api/members")
+  const owner = can("manage_members")
+  const roleSelect = (m) => {
+    const sel = h("select", { "aria-label": `Role for ${m.login}` }, ...Object.entries(ROLE_LABELS).map(([v, l]) => h("option", { value: v, selected: v === m.role }, l)))
+    sel.addEventListener("change", async () => {
+      try { await api(`/api/members/${m.id}`, { method: "PATCH", body: { role: sel.value } }); toast(`${m.login} is now ${ROLE_LABELS[sel.value].toLowerCase()}.`) } catch (e) { reportError(e); sel.value = m.role }
+    })
+    return sel
+  }
+  const limit = data.seats.limit
+  const invite = owner ? h("form", { class: "row invite" },
+    h("input", { type: "text", name: "login", required: true, placeholder: "GitHub username", pattern: "[A-Za-z0-9-]+", "aria-label": "GitHub username" }),
+    h("select", { name: "role", "aria-label": "Role" }, ...Object.entries(ROLE_LABELS).filter(([v]) => v !== "owner").map(([v, l]) => h("option", { value: v, selected: v === "writer" }, l)),
+      h("option", { value: "owner" }, "Owner")),
+    h("button", { class: "btn", type: "submit" }, "Invite")) : null
+  invite?.addEventListener("submit", (e) => {
+    e.preventDefault()
+    const f = new FormData(invite)
+    busy(invite.querySelector("button"), "Inviting", async () => {
+      await api("/api/invites", { method: "POST", body: { login: f.get("login"), role: f.get("role") } })
+      toast(`Invited ${f.get("login")}. They join when they next sign in with GitHub.`); rerender()
+    })
+  })
+  return [
+    h("div", { class: "panel-head" }, h("h2", {}, "Members"), h("span", { class: "small muted" }, limit ? `${data.seats.used} of ${limit} seats` : `${data.seats.used} seats`)),
+    h("table", { class: "table" },
+      h("thead", {}, h("tr", {}, h("th", {}, "Person"), h("th", {}, "Role"), h("th", {}, ""))),
+      h("tbody", {},
+        ...data.members.map((m) => h("tr", {},
+          h("td", {}, h("span", { class: "row" }, m.avatar_url ? h("img", { class: "avatar", src: m.avatar_url, alt: "" }) : null, h("strong", {}, m.login), m.name ? h("span", { class: "muted small" }, m.name) : null)),
+          h("td", {}, owner ? roleSelect(m) : ROLE_LABELS[m.role]),
+          h("td", {}, owner && m.id !== state.info.user.id ? h("button", { class: "link", onclick: (e) => busy(e.currentTarget, "Removing", async () => {
+            if (!confirm(`Remove ${m.login} from ${state.info.workspace.name}?`)) return
+            await api(`/api/members/${m.id}`, { method: "DELETE" }); rerender()
+          }) }, "Remove") : null))),
+        ...data.invites.map((i) => h("tr", {},
+          h("td", {}, h("span", { class: "row" }, h("strong", {}, i.github_login), h("span", { class: "tag" }, "Invited"))),
+          h("td", {}, ROLE_LABELS[i.role]),
+          h("td", {}, owner ? h("button", { class: "link", onclick: (e) => busy(e.currentTarget, "Revoking", async () => { await api(`/api/invites/${i.id}`, { method: "DELETE" }); rerender() }) }, "Revoke") : null))))),
+    invite,
+    h("dl", { class: "kv small" },
+      h("dt", {}, "Owner"), h("dd", {}, "Everything, including members, blogs, the API key and billing."),
+      h("dt", {}, "Editor"), h("dd", {}, "Writes, reviews and publishes."),
+      h("dt", {}, "Writer"), h("dd", {}, "Writes and runs the AI steps. Can't publish."),
+      h("dt", {}, "Reviewer"), h("dd", {}, "Approves or asks for changes.")),
+  ]
+}
+
+async function sitesPanel() {
+  const info = state.info
+  const installation = new URLSearchParams(location.hash.split("?")[1] || "").get("installation_id")
+  const rows = info.sites.map((s) => h("tr", {},
+    h("td", {}, h("strong", {}, s.name)),
+    h("td", { class: "mono" }, s.repo || "This machine"),
+    h("td", { class: "row" },
+      s.repo ? h("button", { class: "link", onclick: (e) => busy(e.currentTarget, "Syncing", async () => { const r = await api(`/api/sites/${s.id}/sync`, { method: "POST" }); toast(`Synced. ${r.posts} posts found.`); await load(); rerender() }) }, "Sync") : null,
+      s.repo ? h("button", { class: "link", onclick: (e) => busy(e.currentTarget, "Disconnecting", async () => {
+        if (!confirm(`Disconnect ${s.repo}? Its posts in Masthead are deleted. The repository isn't touched.`)) return
+        await api(`/api/sites/${s.id}`, { method: "DELETE" }); pref.set("site", null); await load(); rerender()
+      }) }, "Disconnect") : null)))
+  const out = [
+    h("div", { class: "panel-head" }, h("h2", {}, "Blogs"), h("span", { class: "small muted" }, info.limits.repos.limit ? `${info.limits.repos.used} of ${info.limits.repos.limit}` : `${info.limits.repos.used} connected`)),
+    rows.length ? h("table", { class: "table" }, h("thead", {}, h("tr", {}, h("th", {}, "Blog"), h("th", {}, "Repository"), h("th", {}, ""))), h("tbody", {}, ...rows)) : null,
+  ]
+  if (!info.github_app) return [...out, h("div", { class: "callout warn" }, "The GitHub App isn't configured on this server.")]
+  if (installation) {
+    const repos = await api(`/api/github/repositories?installation_id=${encodeURIComponent(installation)}`)
+    const select = h("select", { "aria-label": "Repository" }, ...repos.map((r) => h("option", { value: r.full_name }, r.full_name)))
+    out.push(h("div", { class: "card stack" }, h("h3", {}, "Connect a repository"),
+      h("p", { class: "small muted", style: "margin:0" }, "The repository needs a blog-studio.toml at its root."),
+      h("div", { class: "row" }, select, h("button", { class: "btn", onclick: (e) => busy(e.currentTarget, "Connecting", async () => {
+        const site = await api("/api/sites", { method: "POST", body: { installation_id: Number(installation), repo: select.value } })
+        pref.set("site", site.id); await load(); toast(`Connected ${site.repo}.`); location.hash = "#/"
+      }) }, "Connect"))))
+  } else {
+    out.push(h("div", { class: "card stack" }, h("h3", {}, "Add a blog"),
+      h("p", { class: "small muted", style: "margin:0" }, "Install the Masthead GitHub App on the repository your blog lives in. You come back here to pick it."),
+      h("a", { class: "btn", href: info.github_app.install_url }, "Install on GitHub")))
+  }
+  if (has("approval_rules") && info.site) {
+    const n = h("input", { type: "number", min: 0, max: 3, value: 1, style: "max-width:90px", "aria-label": "Required approvals" })
+    out.push(h("div", { class: "card stack" }, h("h3", {}, `Approval rule for ${info.site.name}`),
+      h("div", { class: "row" }, "Approvals needed before publishing", n,
+        h("button", { class: "btn ghost", onclick: (e) => busy(e.currentTarget, "Saving", async () => { await api(`/api/sites/${info.site.id}`, { method: "PATCH", body: { required_reviewers: Number(n.value) } }); toast("Saved.") }) }, "Save"))))
+  }
+  return out
+}
+
+function keyPanel() {
+  const info = state.info
+  const input = h("input", { type: "password", autocomplete: "off", placeholder: "sk-ant-…", "aria-label": "Anthropic API key", style: "max-width:420px" })
+  return [
+    h("div", { class: "panel-head" }, h("h2", {}, "Anthropic API key")),
+    h("p", { class: "muted", style: "margin:0;max-width:65ch" }, "Every AI step runs on your workspace's own key, so model usage is billed to your Anthropic account. The key is encrypted at rest and never shown again."),
+    info.key_last4 ? h("p", { style: "margin:0" }, "Saved key ending in ", h("span", { class: "mono" }, info.key_last4)) : h("div", { class: "callout warn" }, "No key yet. The AI steps stay off until one is saved."),
+    h("div", { class: "row" }, input,
+      h("button", { class: "btn", onclick: (e) => busy(e.currentTarget, "Saving", async () => { await api("/api/credentials/anthropic", { method: "PUT", body: { key: input.value.trim() } }); input.value = ""; await refreshInfo(); toast("Key saved."); rerender() }) }, info.key_last4 ? "Replace" : "Save"),
+      info.key_last4 ? h("button", { class: "link", onclick: (e) => busy(e.currentTarget, "Removing", async () => {
+        if (!confirm("Remove the key? The AI steps stop until a new one is saved.")) return
+        await api("/api/credentials/anthropic", { method: "DELETE" }); await refreshInfo(); rerender()
+      }) }, "Remove") : null),
+    h("p", { class: "small muted", style: "margin:0" }, `Spent through this key this month: ${money(info.spend.month_usd)}.`),
+  ]
+}
+
+async function billingPanel() {
+  const b = await api("/api/billing")
+  const info = state.info
+  const plan = info.plan
+  const usage = info.limits
+  const fmt = (u) => (u.limit == null ? `${u.used}` : `${u.used} of ${u.limit}`)
+  const out = [
+    h("div", { class: "panel-head" }, h("h2", {}, "Billing"), h("span", { class: "badge clear" }, `${plan.name}${b.status === "trialing" ? " · trial" : ""}`)),
+    b.status === "past_due" ? h("div", { class: "callout warn" }, "The last payment failed. Stripe will retry. Update the card to keep your plan.") : null,
+    b.cancel_at_period_end ? h("div", { class: "callout warn" }, `Your plan ends on ${fmtDate(b.current_period_end && new Date(Number(b.current_period_end) * 1000).toISOString())}. Then the workspace moves to Free.`) : null,
+    h("dl", { class: "kv" },
+      h("dt", {}, "Seats"), h("dd", {}, fmt(usage.seats)),
+      h("dt", {}, "Blogs"), h("dd", {}, fmt(usage.repos)),
+      h("dt", {}, "Posts started this month"), h("dd", {}, fmt(usage.posts_per_month)),
+      b.current_period_end && !b.cancel_at_period_end ? [h("dt", {}, "Renews"), h("dd", {}, fmtDate(new Date(Number(b.current_period_end) * 1000).toISOString()))] : null),
+  ]
+  if (!b.enabled) return [...out, h("p", { class: "small muted" }, "Billing isn't configured on this server.")]
+  if (!b.can_manage) return [...out, h("p", { class: "small muted" }, "Owners manage billing.")]
+  if (b.has_customer && plan.id !== "free") {
+    out.push(h("div", { class: "row" }, h("button", { class: "btn", onclick: (e) => busy(e.currentTarget, "Opening Stripe", async () => { location.href = (await api("/api/billing/portal", { method: "POST" })).url }) }, "Manage seats, card and invoices")))
+    return out
+  }
+  const yearly = h("input", { type: "checkbox", id: "yearly" })
+  const upgrade = (id) => (e) => busy(e.currentTarget, "Opening Stripe", async () => {
+    location.href = (await api("/api/billing/checkout", { method: "POST", body: { plan: id, interval: yearly.checked ? "yearly" : "monthly" } })).url
+  })
+  out.push(
+    h("label", { class: "row", for: "yearly" }, yearly, "Pay yearly. Two months free."),
+    h("div", { class: "grid-2" },
+      h("div", { class: "card stack" }, h("h3", {}, "Team"), h("p", { style: "margin:0" }, h("span", { class: "spend" }, "$19"), " per seat a month, from 2 seats"),
+        h("p", { class: "small muted", style: "margin:0" }, "Review before publishing, roles, scheduling, campaigns and a shared house voice. 14 days free on your first subscription."),
+        h("button", { class: "btn", onclick: upgrade("team") }, "Choose Team")),
+      h("div", { class: "card stack" }, h("h3", {}, "Business"), h("p", { style: "margin:0" }, h("span", { class: "spend" }, "$39"), " per seat a month, from 5 seats"),
+        h("p", { class: "small muted", style: "margin:0" }, "Everything in Team, plus approval rules, the audit log and single sign-on."),
+        h("button", { class: "btn ghost", onclick: upgrade("business") }, "Choose Business"))),
+    h("p", { class: "small muted", style: "margin:0" }, "Payment runs through Stripe. Your plan changes once Stripe confirms it, usually within seconds."),
+  )
+  if (/checkout=done/.test(location.hash)) out.splice(1, 0, h("div", { class: "callout" }, "Thanks. Your plan updates as soon as Stripe confirms the payment."))
+  return out
+}
+
+async function auditPanel() {
+  const entries = await api("/api/audit")
+  return [
+    h("div", { class: "panel-head" }, h("h2", {}, "Audit log"), h("span", { class: "small muted" }, "The latest 200 entries")),
+    entries.length ? h("table", { class: "table" },
+      h("thead", {}, h("tr", {}, h("th", {}, "When"), h("th", {}, "Who"), h("th", {}, "What"), h("th", {}, "On"))),
+      h("tbody", {}, ...entries.map((a) => h("tr", {},
+        h("td", { class: "small" }, new Date(a.at || a.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })),
+        h("td", {}, a.login || "Masthead"),
+        h("td", { class: "mono" }, a.action),
+        h("td", {}, a.target))))) : h("p", { class: "muted" }, "Nothing recorded yet."),
+  ]
+}
+
 // Routing -------------------------------------------------------------------
 function render() {
+  if (!state.info) return
   renderStatus()
   renderSidebar()
   const m = /^#\/post\/(\d+)(?:\/(\w+))?/.exec(location.hash)
+  const settings = /^#\/settings\/(\w+)/.exec(location.hash)
   if (m) renderPost(Number(m[1]), m[2] || "idea")
+  else if (settings && cloud()) renderSettings(settings[1])
   else renderBoard()
 }
 
+async function start() {
+  const me = await api("/api/me")
+  if (me.mode === "cloud" && !me.user) return renderSignIn()
+  state.workspaces = me.workspaces
+  await load()
+  render()
+}
+
 window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0) })
-load().then(render).catch((e) => {
-  $("#main").replaceChildren(h("div", { class: "callout warn" }, `The Studio couldn't load: ${e.message}`))
+start().catch((e) => {
+  if (e.status === 401) return
+  $("#main").replaceChildren(h("div", { class: "callout warn" }, `Masthead couldn't load: ${e.message}`))
 })

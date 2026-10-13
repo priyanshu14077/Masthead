@@ -61,6 +61,10 @@ class Site:
     components: list[str] = field(default_factory=lambda: list(DEFAULT_COMPONENTS))
     protected_branches: list[str] = field(default_factory=lambda: ["main", "master"])
     theme: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_THEME))
+    # Hosted sites live in a GitHub repo, not on this disk; these are read from the repo when it's synced.
+    remote: bool = False
+    known_posts: list[dict] = field(default_factory=list)
+    style_reference_text: str = ""
 
     @property
     def blog_dir(self) -> Path:
@@ -86,29 +90,11 @@ class Site:
         return self.thumbnail_url.strip("/").split("/")[0] or "blog"
 
 
-def load_site(root: Path) -> Site:
-    root = root.resolve()
-    path = root / CONFIG_NAME
-    if not path.is_file():
-        raise ConfigError(f"No {CONFIG_NAME} in {root}. Run `blog-studio init --site {root}` to create one.")
-    try:
-        raw = tomllib.loads(path.read_text())
-    except tomllib.TOMLDecodeError as e:
-        raise ConfigError(f"{path}: {e}") from e
-
+def parse_config(raw: dict, root: Path, read) -> dict:  # type: ignore[no-untyped-def]
+    """The Site fields from a parsed blog-studio.toml. `read` loads a prompt file by relative path."""
     paths = raw.get("paths", {})
     prompts = raw.get("prompts", {})
-
-    def read(rel: str | None) -> str:
-        if not rel:
-            return ""
-        f = root / rel
-        if not f.is_file():
-            raise ConfigError(f"{CONFIG_NAME} points to {rel}, which doesn't exist.")
-        return f.read_text()
-
-    return Site(
-        root=root,
+    return dict(
         name=raw.get("name") or root.name,
         author=raw.get("author", ""),
         site_url=raw.get("site_url", "").rstrip("/"),
@@ -125,46 +111,77 @@ def load_site(root: Path) -> Site:
     )
 
 
+def site_from_snapshot(snapshot: dict, name: str) -> Site:
+    """A hosted site, rebuilt from the config snapshot stored when its repo was synced."""
+    fields = {k: v for k, v in snapshot.items() if k in Site.__dataclass_fields__ and k not in {"root"}}
+    fields.setdefault("name", name)
+    return Site(root=Path("/remote") / snapshot.get("repo", name), remote=True, **fields)
+
+
+def load_site(root: Path) -> Site:
+    root = root.resolve()
+    path = root / CONFIG_NAME
+    if not path.is_file():
+        raise ConfigError(f"No {CONFIG_NAME} in {root}. Run `blog-studio init --site {root}` to create one.")
+    try:
+        raw = tomllib.loads(path.read_text())
+    except tomllib.TOMLDecodeError as e:
+        raise ConfigError(f"{path}: {e}") from e
+
+    def read(rel: str | None) -> str:
+        if not rel:
+            return ""
+        f = root / rel
+        if not f.is_file():
+            raise ConfigError(f"{CONFIG_NAME} points to {rel}, which doesn't exist.")
+        return f.read_text()
+
+    return Site(root=root, **parse_config(raw, root, read))
+
+
 @dataclass(frozen=True)
 class Settings:
-    site: Site
-    db_path: Path
+    """`local`: one person, one blog on this machine (no sign-in). `cloud`: the hosted, multi-tenant app."""
+
+    mode: str
+    db_url: str
     port: int
     fake_ai: bool
-
-    # Short aliases used across the code.
-    @property
-    def repo_root(self) -> Path:
-        return self.site.root
+    base_url: str  # where the app is served; used for OAuth redirects, Stripe return URLs and the host check
+    site: Site | None = None  # local mode's blog
 
     @property
-    def blog_dir(self) -> Path:
-        return self.site.blog_dir
+    def cloud(self) -> bool:
+        return self.mode == "cloud"
 
     @property
-    def thumbs_dir(self) -> Path:
-        return self.site.thumbs_dir
-
-    @property
-    def site_url(self) -> str:
-        return self.site.site_url
-
-    @property
-    def validator(self) -> Path:
-        return STUDIO_DIR / "scripts" / "validate-mdx.mjs"
+    def db_path(self) -> Path | None:
+        return Path(self.db_url.split("///", 1)[1]) if self.db_url.startswith("sqlite:///") else None
 
 
 def get_settings(site_root: str | Path | None = None) -> Settings:
     load_dotenv(STUDIO_DIR / ".env")
-    root = site_root or os.environ.get("BLOG_STUDIO_SITE")
-    if not root:
-        raise ConfigError("Tell the Studio which blog to open: `blog-studio --site PATH`, or set BLOG_STUDIO_SITE in .env.")
-    site = load_site(Path(root))
+    mode = os.environ.get("MASTHEAD_MODE", "local")
+    port = int(os.environ.get("STUDIO_PORT") or os.environ.get("PORT") or "8787")  # PORT is what most hosts set
+    base_url = os.environ.get("MASTHEAD_BASE_URL", f"http://127.0.0.1:{port}").rstrip("/")
     data_dir = Path(os.environ.get("STUDIO_DATA_DIR", STUDIO_DIR / "data"))
     data_dir.mkdir(parents=True, exist_ok=True)
+    site = None
+    if mode == "local":
+        root = site_root or os.environ.get("BLOG_STUDIO_SITE")
+        if not root:
+            raise ConfigError("Tell Masthead which blog to open: `blog-studio --site PATH`, or set BLOG_STUDIO_SITE in .env.")
+        site = load_site(Path(root))
+        default_db = f"sqlite:///{data_dir / f'{site.slug}.db'}"  # one database per blog
+    elif mode == "cloud":
+        default_db = f"sqlite:///{data_dir / 'masthead.db'}"
+    else:
+        raise ConfigError("MASTHEAD_MODE must be local or cloud.")
     return Settings(
-        site=site,
-        db_path=data_dir / f"{site.slug}.db",  # one database per blog
-        port=int(os.environ.get("STUDIO_PORT", "8787")),
+        mode=mode,
+        db_url=os.environ.get("DATABASE_URL", default_db),
+        port=port,
         fake_ai=os.environ.get("STUDIO_FAKE_AI", "0") == "1",
+        base_url=base_url,
+        site=site,
     )

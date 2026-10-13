@@ -52,8 +52,10 @@ def repo(tmp_path: Path) -> Path:
 @pytest.fixture
 def client(repo: Path, tmp_path: Path):
     os.environ["STUDIO_SCHEDULER"] = "0"
-    settings = Settings(site=load_site(repo), db_path=tmp_path / "studio.db", port=8787, fake_ai=True)
-    app = create_app(settings, ai=FakeAI())
+    settings = Settings(mode="local", db_url=f"sqlite:///{tmp_path / 'studio.db'}", port=8787, fake_ai=True, base_url="http://127.0.0.1:8787", site=load_site(repo))
+    fake = FakeAI()
+    app = create_app(settings, ai=fake)
     with TestClient(app) as c:
         c.app_ref = app  # type: ignore[attr-defined]
+        c.fake_ai = fake  # type: ignore[attr-defined]
         yield c

@@ -125,9 +125,10 @@ def _brief(post: dict[str, Any], known_tags: list[str]) -> str:
 
 
 class AI:
-    def __init__(self, prompts: Prompts) -> None:
+    def __init__(self, prompts: Prompts, api_key: str | None = None) -> None:
         self.prompts = prompts
-        self.client = anthropic.AsyncAnthropic()
+        # Hosted: the workspace's own key. Local: the environment or an `ant auth login` profile.
+        self.client = anthropic.AsyncAnthropic(api_key=api_key) if api_key else anthropic.AsyncAnthropic()
 
     async def outline(self, post: dict[str, Any], known_tags: list[str]) -> tuple[Outline, Usage]:
         try:
