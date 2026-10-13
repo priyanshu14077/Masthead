@@ -1,0 +1,204 @@
+import json
+from datetime import date
+
+import pytest
+import yaml
+from pydantic import ValidationError
+
+from studio.thumbnail import DiagramSpec, render
+
+from .conftest import git
+
+
+def make_post(client, **extra):
+    body = {"idea": "How a write-through cache keeps reads fast", "notes": "p99 was 40 ms", **extra}
+    return client.post("/api/posts", json=body).json()
+
+
+def drive_to_checked(client, pid):
+    assert client.post(f"/api/posts/{pid}/outline").status_code == 200
+    with client.stream("POST", f"/api/posts/{pid}/draft") as res:
+        events = res.read().decode()
+    assert "event: done" in events, events
+    res = client.post(f"/api/posts/{pid}/check")
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def test_refuses_other_hosts_and_cross_site_posts(client):
+    assert client.get("/api/state", headers={"host": "evil.example"}).status_code == 403
+    res = client.post("/api/posts", json={"idea": "x" * 5}, headers={"origin": "https://evil.example"})
+    assert res.status_code == 403
+    assert client.post("/api/posts", json={"idea": "fine idea"}, headers={"origin": "http://testserver"}).status_code == 201
+
+
+def test_state_reads_the_site(client):
+    info = client.get("/api/state").json()
+    assert info["ai"] == "fake"
+    assert info["branch"] == "work"
+    assert info["tags"] == ["databases", "system-design"]
+
+
+def test_full_flow_publishes_and_commits(client, repo):
+    campaign = client.post("/api/campaigns", json={"name": "Caching 101", "kind": "series"}).json()
+    post = make_post(client, campaign_id=campaign["id"])
+    client.patch(f"/api/posts/{post['id']}", json={"series_order": 1})
+    checked = drive_to_checked(client, post["id"])
+    assert checked["status"] == "checked"
+    assert checked["gate"]["ready"], checked["gate"]
+
+    assert client.post(f"/api/posts/{post['id']}/thumbnail").status_code == 200
+    social = client.post(f"/api/posts/{post['id']}/social").json()["social"]
+    assert "https://example.test/blog/" in social["linkedin"]
+
+    preview = client.post(f"/api/posts/{post['id']}/preview").json()
+    slug = preview["slug"]
+    mdx = repo / "content" / "blog" / f"{slug}.mdx"
+    assert yaml.safe_load(mdx.read_text().split("---")[1])["draft"] is True
+    assert preview["preview_url"].endswith(f"/blog/{slug}")
+
+    published = client.post(f"/api/posts/{post['id']}/publish").json()
+    assert published["status"] == "published"
+    fm = yaml.safe_load(mdx.read_text().split("---")[1])
+    assert fm["draft"] is False
+    assert fm["series"] == "Caching 101" and fm["seriesOrder"] == 1
+    assert fm["thumbnail"] == f"/blog/{slug}/thumbnail.svg"
+    assert fm["date"] == date.today()
+    assert (repo / "public" / "blog" / slug / "thumbnail.svg").read_text().startswith("<svg")
+    assert published["commit_sha"] == git(repo, "rev-parse", "--short", "HEAD")
+    assert "Publish the post" in git(repo, "log", "-1", "--format=%s")
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def test_publish_commits_only_the_post(client, repo):
+    (repo / "unrelated.txt").write_text("work in progress")
+    git(repo, "add", "unrelated.txt")
+    post = make_post(client)
+    drive_to_checked(client, post["id"])
+    client.post(f"/api/posts/{post['id']}/publish")
+    assert "unrelated.txt" not in git(repo, "show", "--name-only", "--format=", "HEAD")
+    assert "A  unrelated.txt" in git(repo, "status", "--porcelain")
+
+
+def test_gate_requires_a_current_check(client):
+    post = make_post(client)
+    client.post(f"/api/posts/{post['id']}/outline")
+    with client.stream("POST", f"/api/posts/{post['id']}/draft") as res:
+        res.read()
+    res = client.post(f"/api/posts/{post['id']}/publish")
+    assert res.status_code == 409 and "confidentiality check" in res.json()["detail"]
+
+    client.post(f"/api/posts/{post['id']}/check")
+    edited = client.patch(f"/api/posts/{post['id']}", json={"body": "## Changed\n\nNew text."}).json()
+    assert edited["status"] == "drafted"
+    assert not edited["gate"]["ready"]
+
+
+def test_secrets_block_and_cannot_be_acknowledged(client):
+    post = make_post(client)
+    drive_to_checked(client, post["id"])
+    client.patch(f"/api/posts/{post['id']}", json={"body": "## Setup\n\nUse key sk-ant-api03-abcdefghijklmnop to connect."})
+    checked = client.post(f"/api/posts/{post['id']}/check").json()
+    assert checked["check_result"]["verdict"] == "block"
+    assert client.post(f"/api/posts/{post['id']}/check/ack", json={"acknowledged": True}).status_code == 409
+    assert client.post(f"/api/posts/{post['id']}/publish").status_code == 409
+
+
+def test_links_need_review_and_can_be_acknowledged(client):
+    post = make_post(client)
+    drive_to_checked(client, post["id"])
+    client.patch(f"/api/posts/{post['id']}", json={"body": "## Read more\n\nSee [the docs](https://www.postgresql.org/docs/) and email me@private.dev."})
+    checked = client.post(f"/api/posts/{post['id']}/check").json()
+    kinds = {f["kind"] for f in checked["check_result"]["findings"]}
+    assert {"unverified-link", "personal"} <= kinds
+    assert checked["check_result"]["verdict"] == "review"
+    acked = client.post(f"/api/posts/{post['id']}/check/ack", json={"acknowledged": True}).json()
+    assert acked["gate"]["ready"]
+
+
+def test_broken_mdx_and_unknown_components_are_caught(client):
+    post = make_post(client)
+    drive_to_checked(client, post["id"])
+    client.patch(f"/api/posts/{post['id']}", json={"body": "## Hi\n\n<Chart data={[1,2]} />"})
+    result = client.post(f"/api/posts/{post['id']}/check").json()["check_result"]
+    assert result["verdict"] == "block" and "Chart" in result["mdx_error"]
+
+    client.patch(f"/api/posts/{post['id']}", json={"body": "## Hi\n\n<Callout type=\"note\">unclosed"})
+    result = client.post(f"/api/posts/{post['id']}/check").json()["check_result"]
+    assert result["verdict"] == "block" and "valid MDX" in result["mdx_error"]
+
+
+def test_refuses_to_publish_on_master(client, repo):
+    git(repo, "checkout", "-q", "-b", "master")
+    post = make_post(client)
+    drive_to_checked(client, post["id"])
+    res = client.post(f"/api/posts/{post['id']}/publish")
+    assert res.status_code == 409 and "master" in res.json()["detail"]
+
+
+def test_never_overwrites_an_existing_post(client):
+    post = make_post(client)
+    drive_to_checked(client, post["id"])
+    client.patch(f"/api/posts/{post['id']}", json={"slug": "designing-a-url-shortener"})
+    res = client.post(f"/api/posts/{post['id']}/preview")
+    assert res.status_code == 409 and "already" in res.json()["detail"]
+
+
+def test_scheduler_publishes_due_posts(client, repo):
+    post = make_post(client)
+    drive_to_checked(client, post["id"])
+    scheduled = client.post(f"/api/posts/{post['id']}/schedule", json={"publish_at": date.today().isoformat()}).json()
+    assert scheduled["status"] == "scheduled"
+    assert client.post("/api/scheduler/run").json()["published"] == [post["id"]]
+    assert client.get(f"/api/posts/{post['id']}").json()["status"] == "published"
+
+
+def test_cannot_delete_a_post_that_is_in_the_site(client):
+    post = make_post(client)
+    drive_to_checked(client, post["id"])
+    client.post(f"/api/posts/{post['id']}/preview")
+    assert client.delete(f"/api/posts/{post['id']}").status_code == 409
+
+
+def test_draft_stream_keeps_partial_text_on_error(client):
+    from studio.ai import AIError
+
+    app = client.app_ref
+    post = make_post(client)
+    client.post(f"/api/posts/{post['id']}/outline")
+
+    async def failing(post, reference, sink):
+        yield "## Half"
+        raise AIError("The write this post ran out of room.")
+
+    model = next(r for r in app.routes if getattr(r, "path", "") == "/api/posts/{pid}/draft").endpoint.__closure__
+    # Swap the draft generator on the fake AI instance used by the app.
+    for cell in model:
+        if hasattr(cell.cell_contents, "draft"):
+            cell.cell_contents.draft = failing
+    with client.stream("POST", f"/api/posts/{post['id']}/draft") as res:
+        events = res.read().decode()
+    assert "event: error" in events and json.loads(events.split("data: ")[-1])["partial"] is True
+    assert client.get(f"/api/posts/{post['id']}").json()["body"] == "## Half"
+
+
+def test_thumbnail_spec_validation_and_render():
+    spec = {
+        "title": "A",
+        "nodes": [
+            {"id": "a", "label": "Client", "kind": "node", "col": 0, "row": 1},
+            {"id": "b", "label": "API", "sub": "stateless", "kind": "hot", "col": 2, "row": 1},
+            {"id": "c", "label": "Store", "kind": "store", "col": 9, "row": 9},
+        ],
+        "edges": [{"source": "a", "target": "b", "style": "accent", "label": "req"}, {"source": "b", "target": "missing", "style": "normal"}],
+        "groups": [{"label": "core", "col": 2, "row": 1, "cols": 9, "rows": 1}],
+    }
+    parsed = DiagramSpec.model_validate(spec)
+    assert (parsed.nodes[2].col, parsed.nodes[2].row) == (4, 3)
+    assert len(parsed.edges) == 1 and parsed.groups[0].cols == 3
+    svg = render(parsed)
+    assert svg.startswith("<svg") and "stateless" in svg and "<title>A</title>" in svg
+
+    spec["nodes"][2].update(col=0, row=1)
+    with pytest.raises(ValidationError):
+        DiagramSpec.model_validate(spec)
