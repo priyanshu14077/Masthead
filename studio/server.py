@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import checks, content
+from . import auth, checks, content
 from .ai import AI, AIError, FakeAI, Usage
 from .config import STUDIO_DIR, Settings, get_settings
 from .db import DB
@@ -405,6 +405,7 @@ def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAP
     def scheduler_run() -> dict[str, Any]:
         return {"published": run_due()}
 
+    app.include_router(auth.router(settings.port))
     app.mount("/", StaticFiles(directory=STUDIO_DIR / "ui", html=True), name="ui")
     return app
 
