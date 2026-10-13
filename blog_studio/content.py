@@ -14,13 +14,6 @@ from .config import Settings
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
-# Components the site registers for posts (src/components/blog/mdx/index.tsx), plus plain HTML.
-ALLOWED_COMPONENTS = {
-    "Callout", "Figure", "Mermaid", "Steps", "Step", "Tradeoffs", "TLDR", "Takeaways", "References", "Video",
-}
-
-PROTECTED_BRANCHES = {"main", "master"}
-
 
 class ContentError(Exception):
     """A problem the author has to fix before the post can be written or published."""
@@ -68,8 +61,8 @@ def known_tags(settings: Settings) -> list[str]:
 
 def style_reference(settings: Settings) -> str:
     """One published post, used as the house-style example in the drafting prompt."""
-    path = settings.blog_dir / "designing-a-url-shortener.mdx"
-    if not path.exists():
+    path = settings.repo_root / settings.site.style_reference if settings.site.style_reference else settings.blog_dir / "-"
+    if not path.is_file():
         candidates = [p for p in sorted(settings.blog_dir.glob("*.mdx")) if not p.name.startswith("_")]
         if not candidates:
             return ""
@@ -82,7 +75,7 @@ def post_paths(settings: Settings, slug: str) -> tuple[Path, Path]:
     return settings.blog_dir / f"{slug}.mdx", settings.thumbs_dir / slug / "thumbnail.svg"
 
 
-def frontmatter(post: dict[str, Any], campaign: dict[str, Any] | None, *, draft: bool, on: date) -> str:
+def frontmatter(settings: Settings, post: dict[str, Any], campaign: dict[str, Any] | None, *, draft: bool, on: date) -> str:
     fm: dict[str, Any] = {
         "title": post["title"],
         "subtitle": post.get("subtitle") or None,
@@ -95,7 +88,7 @@ def frontmatter(post: dict[str, Any], campaign: dict[str, Any] | None, *, draft:
         if post.get("series_order"):
             fm["seriesOrder"] = int(post["series_order"])
     if post.get("thumb_spec"):
-        fm["thumbnail"] = f"/blog/{post['slug']}/thumbnail.svg"
+        fm["thumbnail"] = settings.site.thumbnail_url.replace("{slug}", post["slug"])
     fm["summary"] = post.get("summary") or ""
     if post.get("tldr"):
         fm["tldr"] = post["tldr"]
@@ -105,13 +98,13 @@ def frontmatter(post: dict[str, Any], campaign: dict[str, Any] | None, *, draft:
     return f"---\n{dumped}---\n\n"
 
 
-def unknown_components(body: str) -> list[str]:
+def unknown_components(settings: Settings, body: str) -> list[str]:
     used = set(re.findall(r"<([A-Z][A-Za-z0-9]*)", body))
-    return sorted(used - ALLOWED_COMPONENTS)
+    return sorted(used - set(settings.site.components))
 
 
 def validate_mdx(settings: Settings, source: str) -> None:
-    bad = unknown_components(source)
+    bad = unknown_components(settings, source)
     if bad:
         raise ContentError(f"The draft uses components the site doesn't have: {', '.join(bad)}.")
     result = subprocess.run(
@@ -134,9 +127,9 @@ def write_post(settings: Settings, post: dict[str, Any], campaign: dict[str, Any
         if existing["slug"] == slug and existing["file"] != mdx_path.name:
             raise ContentError(f"Another post already uses the slug '{slug}'.")
     if mdx_path.exists() and not post.get("written"):
-        raise ContentError(f"content/blog/{mdx_path.name} already exists and wasn't written by the Studio.")
+        raise ContentError(f"{mdx_path.relative_to(settings.repo_root)} already exists and wasn't written by the Studio.")
 
-    source = frontmatter(post, campaign, draft=draft, on=on) + post["body"].strip() + "\n"
+    source = frontmatter(settings, post, campaign, draft=draft, on=on) + post["body"].strip() + "\n"
     validate_mdx(settings, source)
 
     mdx_path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,7 +162,7 @@ def commit(settings: Settings, paths: list[Path], message: str) -> str:
     branch = current_branch(settings)
     if not branch:
         raise ContentError("The repository isn't on a branch, so nothing was committed.")
-    if branch in PROTECTED_BRANCHES:
+    if branch in settings.site.protected_branches:
         raise ContentError(f"You're on {branch}, which deploys the live site. Switch to a working branch first.")
     rel = [str(p.relative_to(settings.repo_root)) for p in paths]
     git(settings, "add", "--", *rel)

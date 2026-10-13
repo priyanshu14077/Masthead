@@ -1,0 +1,11 @@
+{
+  "name": "blog-studio-validator",
+  "private": true,
+  "type": "module",
+  "description": "Node dependencies for compiling post MDX before it is written into a blog.",
+  "dependencies": {
+    "@mdx-js/mdx": "^3.1.1",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1"
+  }
+}

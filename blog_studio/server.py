@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import auth, checks, content
+from . import prompts as prompt_builder
 from .ai import AI, AIError, FakeAI, Usage
 from .config import STUDIO_DIR, Settings, get_settings
 from .db import DB
@@ -82,7 +83,8 @@ def body_hash(post: dict[str, Any]) -> str:
 def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAPI:
     settings = settings or get_settings()
     db = DB(settings.db_path)
-    model = ai or (FakeAI() if settings.fake_ai else AI())
+    built = prompt_builder.build(settings.site)
+    model = ai or (FakeAI(built) if settings.fake_ai else AI(built))
     allowed_hosts = {f"127.0.0.1:{settings.port}", f"localhost:{settings.port}", "testserver"}
 
     @asynccontextmanager
@@ -124,8 +126,8 @@ def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAP
         out = dict(post)
         out["gate"] = publish_gate(post)
         out["spend_usd"] = db.post_spend(post["id"])
-        out["preview_url"] = f"http://localhost:5173/blog/{post['slug']}" if post.get("written") and post.get("slug") else None
-        out["public_url"] = f"{settings.site_url}/blog/{post['slug']}" if post.get("slug") else None
+        out["preview_url"] = settings.site.preview(post["slug"]) if post.get("written") and post.get("slug") else None
+        out["public_url"] = settings.site.public(post["slug"]) if post.get("slug") else None
         return out
 
     def publish_gate(post: dict[str, Any]) -> dict[str, Any]:
@@ -148,7 +150,7 @@ def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAP
             raise HTTPException(409, " ".join(gate["missing"]))
 
     def thumbnail_svg(post: dict[str, Any]) -> str | None:
-        return render(DiagramSpec.model_validate(post["thumb_spec"])) if post.get("thumb_spec") else None
+        return render(DiagramSpec.model_validate(post["thumb_spec"]), settings.site.theme) if post.get("thumb_spec") else None
 
     def do_publish(post: dict[str, Any], on: date) -> dict[str, Any]:
         require_gate(post)
@@ -187,7 +189,11 @@ def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAP
         return {
             "ai": "fake" if settings.fake_ai else ("ready" if has_key or has_profile else "missing"),
             "branch": content.current_branch(settings),
-            "protected_branch": content.current_branch(settings) in content.PROTECTED_BRANCHES,
+            "protected_branch": content.current_branch(settings) in settings.site.protected_branches,
+            "site_name": settings.site.name,
+            "site_root": str(settings.repo_root),
+            "blog_preview": (settings.site.preview("") or "").rstrip("/") or None,
+            "posts_dir": settings.site.posts_dir,
             "repo_root": str(settings.repo_root),
             "site_url": settings.site_url,
             "tags": content.known_tags(settings),
@@ -253,7 +259,7 @@ def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAP
     def delete_post(pid: int) -> Response:
         post = get_post(pid)
         if post.get("written"):
-            raise HTTPException(409, "This post is already in the site. Delete its file from content/blog yourself if you mean to remove it.")
+            raise HTTPException(409, f"This post is already in the site. Delete its file from {settings.site.posts_dir} yourself if you mean to remove it.")
         db.delete_post(pid)
         return Response(status_code=204)
 
@@ -320,7 +326,7 @@ def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAP
         found = [f.model_dump() for f in result.findings] + checks.scan(text, settings.site_url)
         verdict = "block" if any(f["severity"] == "high" for f in found) else ("review" if any(f["severity"] == "medium" for f in found) else "clear")
         try:
-            frontmatter = content.frontmatter(post, campaign_of(post), draft=True, on=date.today())
+            frontmatter = content.frontmatter(settings, post, campaign_of(post), draft=True, on=date.today())
             content.validate_mdx(settings, frontmatter + post["body"])
             mdx_error = None
         except content.ContentError as e:
@@ -363,7 +369,7 @@ def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAP
         if not post.get("body") or not post.get("slug"):
             raise HTTPException(409, "Write the draft first.")
         try:
-            result, usage = await model.social(post, f"{settings.site_url}/blog/{post['slug']}")
+            result, usage = await model.social(post, settings.site.public(post["slug"]) or post["slug"])
         except AIError as e:
             raise HTTPException(502, str(e)) from e
         log(pid, "social", usage)
@@ -408,15 +414,3 @@ def create_app(settings: Settings | None = None, ai: AI | None = None) -> FastAP
     app.include_router(auth.router(settings.port))
     app.mount("/", StaticFiles(directory=STUDIO_DIR / "ui", html=True), name="ui")
     return app
-
-
-def main() -> None:
-    import uvicorn
-
-    settings = get_settings()
-    print(f"Blog Studio on http://127.0.0.1:{settings.port}  (repo: {settings.repo_root})")
-    uvicorn.run(create_app(settings), host="127.0.0.1", port=settings.port, log_level="info")
-
-
-if __name__ == "__main__":
-    main()

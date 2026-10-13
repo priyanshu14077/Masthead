@@ -13,7 +13,7 @@ from typing import Any, Literal
 import anthropic
 from pydantic import BaseModel, Field, ValidationError
 
-from . import prompts
+from .prompts import Prompts
 from .thumbnail import DiagramSpec
 
 WRITER = "claude-sonnet-5-5"
@@ -125,7 +125,8 @@ def _brief(post: dict[str, Any], known_tags: list[str]) -> str:
 
 
 class AI:
-    def __init__(self) -> None:
+    def __init__(self, prompts: Prompts) -> None:
+        self.prompts = prompts
         self.client = anthropic.AsyncAnthropic()
 
     async def outline(self, post: dict[str, Any], known_tags: list[str]) -> tuple[Outline, Usage]:
@@ -133,7 +134,7 @@ class AI:
             msg = await self.client.messages.parse(
                 model=WRITER,
                 max_tokens=16000,
-                system=_cached(prompts.OUTLINE_SYSTEM),
+                system=_cached(self.prompts.outline),
                 messages=[{"role": "user", "content": _brief(post, known_tags)}],
                 output_format=Outline,
                 **FALLBACK,
@@ -155,7 +156,7 @@ class AI:
             async with self.client.messages.stream(
                 model=WRITER,
                 max_tokens=64000,
-                system=_cached(prompts.DRAFT_SYSTEM.replace("{reference}", reference)),
+                system=_cached(self.prompts.draft.replace("{reference}", reference)),
                 messages=[{"role": "user", "content": user}],
                 output_config={"effort": "high"},
                 **FALLBACK,
@@ -178,7 +179,7 @@ class AI:
             msg = await self.client.messages.parse(
                 model=REVIEWER,
                 max_tokens=16000,
-                system=_cached(prompts.CHECK_SYSTEM),
+                system=_cached(self.prompts.check),
                 messages=[{"role": "user", "content": user}],
                 output_format=CheckResult,
             )
@@ -196,7 +197,7 @@ class AI:
             msg = await self.client.messages.parse(
                 model=WRITER,
                 max_tokens=16000,
-                system=_cached(prompts.THUMB_SYSTEM),
+                system=_cached(self.prompts.thumbnail),
                 messages=[{"role": "user", "content": user}],
                 output_format=DiagramSpec,
                 **FALLBACK,
@@ -216,7 +217,7 @@ class AI:
             msg = await self.client.messages.parse(
                 model=REVIEWER,
                 max_tokens=8000,
-                system=_cached(prompts.SOCIAL_SYSTEM),
+                system=_cached(self.prompts.social),
                 messages=[{"role": "user", "content": user}],
                 output_format=Social,
             )
@@ -242,8 +243,8 @@ def _api_message(e: anthropic.APIError) -> str:
 
 # Canned responses for trying the UI without credentials ------------------
 class FakeAI(AI):
-    def __init__(self) -> None:  # no client
-        pass
+    def __init__(self, prompts: Prompts | None = None) -> None:  # no client
+        self.prompts = prompts  # type: ignore[assignment]
 
     async def outline(self, post: dict[str, Any], known_tags: list[str]) -> tuple[Outline, Usage]:
         title = post["idea"].strip().split("\n")[0][:60].rstrip(".") or "Untitled idea"

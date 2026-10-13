@@ -10,7 +10,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-DEEP, NAVY, PAPER, PAPER_DIM, ACCENT, TAPE = "#14213a", "#24375a", "#f2ede2", "#e6dfcf", "#b4673d", "#a9c1d6"
+from .config import DEFAULT_THEME
+
+# Set per render from the blog's theme (see render); these are the defaults.
+DEEP, NAVY, PAPER, PAPER_DIM, ACCENT, TAPE = (DEFAULT_THEME[k] for k in ("background", "box", "text", "box_light", "accent", "secondary"))
 W, H = 800, 500
 COLS, ROWS = 5, 4
 X0, Y0, CW, CH = 30, 50, 148, 106  # grid origin and cell size
@@ -146,7 +149,10 @@ def _group(g: Group) -> str:
     )
 
 
-def render(spec: DiagramSpec) -> str:
+def render(spec: DiagramSpec, theme: dict[str, str] | None = None) -> str:
+    global DEEP, NAVY, PAPER, PAPER_DIM, ACCENT, TAPE
+    t = {**DEFAULT_THEME, **(theme or {})}
+    DEEP, NAVY, PAPER, PAPER_DIM, ACCENT, TAPE = (t[k] for k in ("background", "box", "text", "box_light", "accent", "secondary"))
     def marker(i: str, c: str) -> str:
         return f'<marker id="{i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="{c}"/></marker>'
 

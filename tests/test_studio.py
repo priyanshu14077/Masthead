@@ -5,7 +5,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from studio.thumbnail import DiagramSpec, render
+from blog_studio.thumbnail import DiagramSpec, render
 
 from .conftest import git
 
@@ -161,7 +161,7 @@ def test_cannot_delete_a_post_that_is_in_the_site(client):
 
 
 def test_draft_stream_keeps_partial_text_on_error(client):
-    from studio.ai import AIError
+    from blog_studio.ai import AIError
 
     app = client.app_ref
     post = make_post(client)
@@ -202,3 +202,26 @@ def test_thumbnail_spec_validation_and_render():
     spec["nodes"][2].update(col=0, row=1)
     with pytest.raises(ValidationError):
         DiagramSpec.model_validate(spec)
+
+
+def test_config_and_init(tmp_path):
+    from blog_studio.cli import init
+    from blog_studio.config import ConfigError, load_site
+
+    with pytest.raises(ConfigError, match="blog-studio init"):
+        load_site(tmp_path)
+    assert init(tmp_path) == 0
+    site = load_site(tmp_path)
+    assert site.name == tmp_path.name and site.voice and site.components_guide
+    assert site.preview("hello") == "http://localhost:5173/blog/hello"
+    assert init(tmp_path) == 1  # never overwrites
+
+
+def test_prompts_use_the_blogs_voice(repo):
+    from blog_studio.config import load_site
+    from blog_studio.prompts import build
+
+    (repo / "voice.md").write_text("Write like a pirate.")
+    (repo / "blog-studio.toml").write_text((repo / "blog-studio.toml").read_text().replace("[paths]", '[prompts]\nvoice = "voice.md"\n[paths]'))
+    p = build(load_site(repo))
+    assert p.outline.startswith("Write like a pirate.") and "{reference}" in p.draft

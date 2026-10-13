@@ -91,6 +91,8 @@ function upsert(post) {
 // Chrome --------------------------------------------------------------------
 function renderStatus() {
   const { info } = state
+  document.title = `Blog Studio · ${info.site_name}`
+  $(".brand").textContent = `Blog Studio · ${info.site_name}`
   const ai = { ready: ["AI ready", false], fake: ["Fake AI mode", true], missing: ["No API credentials", true] }[info.ai]
   $("#status").replaceChildren(
     h("span", { class: `pill ${ai[1] ? "warn" : ""}`, title: ai[1] && info.ai === "missing" ? "Add ANTHROPIC_API_KEY to studio/.env, or run `ant auth login`, then restart." : null }, h("span", { class: "dot" }), ai[0]),
@@ -121,7 +123,7 @@ function renderSidebar() {
     h("div", { class: "side-section" },
       h("p", { class: "side-title" }, "On the site"),
       h("p", { class: "small muted", style: "margin:0" }, `${state.info.site_posts.filter((p) => !p.draft).length} published · ${state.info.site_posts.filter((p) => p.draft).length} drafts`),
-      h("a", { class: "small", href: "http://localhost:5173/blog", target: "_blank", rel: "noreferrer" }, "Open the blog on the dev server ↗"),
+      state.info.blog_preview ? h("a", { class: "small", href: state.info.blog_preview, target: "_blank", rel: "noreferrer" }, "Open the blog on the dev server ↗") : null,
     ),
   )
 }
@@ -398,7 +400,7 @@ function draftPanel(p) {
       h("button", { class: "btn ghost", onclick: (e) => busy(e.currentTarget, "Writing to the site", async () => {
         await save(p, { body: body.value })
         const post = upsert(await api(`/api/posts/${p.id}/preview`, { method: "POST" }))
-        toast("Written to content/blog as a draft. It shows on the dev server only.")
+        toast(`Written to ${state.info.posts_dir} as a draft. It shows on the dev server only.`)
         window.open(post.preview_url, "_blank", "noreferrer")
         renderPost(p.id, "draft")
       }) }, "Preview on the dev server ↗"),
@@ -447,7 +449,7 @@ function thumbPanel(p) {
   const img = p.thumb_spec ? h("img", { class: "thumb", src: `/api/posts/${p.id}/thumbnail.svg?v=${encodeURIComponent(p.updated_at)}`, alt: p.thumb_spec.title }) : h("div", { class: "callout" }, "No thumbnail yet.")
   return [
     h("div", { class: "panel-head" }, h("div", {}, h("p", { class: "eyebrow" }, "Step 5"), h("h2", {}, "Thumbnail diagram"))),
-    h("p", { class: "muted", style: "margin:0;max-width:70ch" }, "Claude designs the structure; the Studio draws it in the same style as the existing post thumbnails. It's written to public/blog/<slug>/thumbnail.svg when you preview or publish."),
+    h("p", { class: "muted", style: "margin:0;max-width:70ch" }, "Claude designs the structure; the Studio draws it in your blog's thumbnail palette. It's written into the site when you preview or publish."),
     img,
     h("div", { class: "row" },
       h("button", { class: "btn", disabled: !p.body, onclick: (e) => busy(e.currentTarget, "Designing", async () => { upsert(await api(`/api/posts/${p.id}/thumbnail`, { method: "POST" })); await refreshInfo(); renderPost(p.id, "thumbnail") }) }, p.thumb_spec ? "Redesign" : "Design the thumbnail"),
@@ -480,13 +482,13 @@ function publishPanel(p) {
   const blocked = state.info.protected_branch
   return [
     h("div", { class: "panel-head" }, h("div", {}, h("p", { class: "eyebrow" }, "Step 7"), h("h2", {}, p.status === "published" ? "Published" : "Schedule or publish"))),
-    p.gate.ready ? h("div", { class: "callout" }, "Ready. Publishing writes the post into content/blog, commits it on the current branch, and never pushes. Push and merge to master yourself to go live.")
+    p.gate.ready ? h("div", { class: "callout" }, `Ready. Publishing writes the post into ${state.info.posts_dir}, commits it on the current branch, and never pushes. Push and merge yourself to go live.`)
       : h("div", { class: "callout warn" }, h("strong", {}, "Not ready yet:"), h("ul", { class: "gate" }, ...p.gate.missing.map((m) => h("li", {}, m)))),
     blocked ? h("div", { class: "callout warn" }, `You're on ${state.info.branch}, which deploys the live site. Switch to a working branch before publishing.`) : null,
     p.last_error ? h("div", { class: "callout warn" }, h("strong", {}, "Last scheduled attempt failed: "), p.last_error) : null,
     h("dl", { class: "kv" },
       h("dt", {}, "Status"), h("dd", {}, p.status),
-      h("dt", {}, "File"), h("dd", { class: "mono" }, p.slug ? `content/blog/${p.slug}.mdx` : "—"),
+      h("dt", {}, "File"), h("dd", { class: "mono" }, p.slug ? `${state.info.posts_dir}/${p.slug}.mdx` : "—"),
       h("dt", {}, "Campaign"), h("dd", {}, campaignName(p.campaign_id) || "None"),
       p.publish_at ? [h("dt", {}, "Scheduled for"), h("dd", {}, fmtDate(p.publish_at))] : null,
       p.published_at ? [h("dt", {}, "Published"), h("dd", {}, fmtDate(p.published_at))] : null,
