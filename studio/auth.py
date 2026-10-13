@@ -50,7 +50,11 @@ def router(port: int) -> APIRouter:
     r = APIRouter(prefix="/auth")
 
     @r.get("/login")
-    def login() -> RedirectResponse:
+    def login(request: Request) -> RedirectResponse:
+        # Cookies belong to one host. GitHub always returns to 127.0.0.1 (the registered callback),
+        # so a login started on localhost would leave its state cookie behind. Move to 127.0.0.1 first.
+        if request.url.hostname != "127.0.0.1":
+            return RedirectResponse(f"http://127.0.0.1:{port}/auth/login", status_code=302)
         now = time.time()
         for key in [k for k, p in pending.items() if now - p.created > PENDING_TTL]:
             del pending[key]
