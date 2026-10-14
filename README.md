@@ -16,18 +16,20 @@ Both work on any blog whose posts are MDX files in a git repository.
 uv sync
 npm install                      # Node packages used to compile post MDX before it's written
 
-# 2. Point it at a blog
-uv run blog-studio init --site ../my-blog
-#    edit ../my-blog/blog-studio.toml and ../my-blog/.blog-studio/*.md
+# 2. Set up a blog. Its settings live here in blogs/, so the blog's repository stays untouched.
+uv run blog-studio init --site ../my-blog --config blogs/my-blog/blog-studio.toml
+#    edit blogs/my-blog/blog-studio.toml and blogs/my-blog/.blog-studio/*.md
 
-# 3. Add credentials
-cp .env.example .env             # set ANTHROPIC_API_KEY, or run `ant auth login`
+# 3. Add credentials and pick the blog
+cp .env.example .env             # set ANTHROPIC_API_KEY (or run `ant auth login`) and BLOG_STUDIO_CONFIG
 
 # 4. Run
-uv run blog-studio --site ../my-blog
+uv run blog-studio
 ```
 
 Open http://127.0.0.1:8787. Keep your blog's dev server running so previews open.
+
+`blogs/` is gitignored, because voice files describe your own writing. To keep the settings inside the blog's repository instead, leave out `--config` and run `uv run blog-studio --site ../my-blog`.
 
 To try it without spending tokens, set `STUDIO_FAKE_AI=1` in `.env`.
 
@@ -49,12 +51,13 @@ To try it without spending tokens, set `STUDIO_FAKE_AI=1` in `.env`.
 
 ## Configuring a blog
 
-Everything about a blog lives in that blog's repository, so Masthead itself holds no site details. Hosted Masthead reads the same file from the repository when a blog is connected, and again on every sync.
+A blog's settings are one TOML file plus two prompt files, kept in `blogs/<name>/` or in the blog's own repository. Paths under `[paths]` are relative to the blog's repository. Prompt files are relative to the settings file. Hosted Masthead reads the same file from the repository when a blog is connected, and again on every sync.
 
 `blog-studio.toml`:
 
 ```toml
-name = "Field notes"
+repo = "../../../my-blog"     # only when the file lives outside the blog; relative to this file
+name = "Engineering notes"
 author = "Your name"
 site_url = "https://example.com"
 preview_url = "http://localhost:5173/blog/{slug}"

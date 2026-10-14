@@ -1,1 +1,1 @@
-"""Blog Studio: a local campaign manager for the portfolio blog."""
+"""Masthead: the publishing desk for engineering teams."""

@@ -1,4 +1,4 @@
-"""Command line: `blog-studio --site PATH` serves the Studio for one blog; `blog-studio init --site PATH` sets a blog up."""
+"""Command line: `blog-studio --config FILE` (or `--site PATH`) serves Masthead for one blog; `blog-studio init` sets a blog up."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from pathlib import Path
 from .config import CONFIG_NAME, ConfigError, get_settings
 
 STARTER_CONFIG = """\
-# Blog Studio settings for this blog. Paths are relative to this file.
+# Masthead settings for this blog. Paths under [paths] are relative to the blog repo; prompt files are relative to this file.
+{repo_line}
 name = "{name}"
 author = ""
 site_url = ""                                   # public origin, e.g. https://example.com
@@ -47,39 +48,49 @@ Start with the first "## " section. Do not write frontmatter, a title or a TL;DR
 """
 
 
-def init(site: Path) -> int:
+def init(site: Path, config: Path | None = None) -> int:
+    """Writes starter settings: inside the blog (`--site`), or in a folder of their own (`--config`)."""
     site = site.resolve()
-    config = site / CONFIG_NAME
+    if config is not None:
+        config = config.resolve()
+        folder = config.parent
+        repo_line = f'repo = "{os.path.relpath(site, folder)}"\n'
+    else:
+        config = site / CONFIG_NAME
+        folder = site
+        repo_line = ""
     if config.exists():
         print(f"{config} already exists; nothing changed.")
         return 1
-    folder = site / ".blog-studio"
-    folder.mkdir(exist_ok=True)
-    config.write_text(STARTER_CONFIG.format(name=site.name))
+    prompts = folder / ".blog-studio"
+    prompts.mkdir(parents=True, exist_ok=True)
+    config.write_text(STARTER_CONFIG.format(name=site.name, repo_line=repo_line))
     for name, text in (("voice.md", STARTER_VOICE), ("components.md", STARTER_COMPONENTS)):
-        if not (folder / name).exists():
-            (folder / name).write_text(text)
-    print(f"Created {config.relative_to(site.parent)} and .blog-studio/. Edit them, then run: blog-studio --site {site}")
+        if not (prompts / name).exists():
+            (prompts / name).write_text(text)
+    run = f"--config {config}" if repo_line else f"--site {site}"
+    print(f"Created {config} and {prompts}/. Edit them, then run: blog-studio {run}")
     return 0
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="blog-studio", description="Masthead: the publishing desk for engineering teams.")
     parser.add_argument("command", nargs="?", choices=["serve", "init"], default="serve")
-    parser.add_argument("--site", help="path to the blog's repository (or set BLOG_STUDIO_SITE)")
+    parser.add_argument("--config", help="the blog's settings file, kept outside the blog (or set BLOG_STUDIO_CONFIG)")
+    parser.add_argument("--site", help="path to the blog's repository, if its settings live inside it (or set BLOG_STUDIO_SITE)")
     args = parser.parse_args()
 
     if args.command == "init":
         if not args.site:
-            parser.error("init needs --site PATH")
-        sys.exit(init(Path(args.site)))
+            parser.error("init needs --site PATH, and --config FILE to keep the settings outside the blog")
+        sys.exit(init(Path(args.site), Path(args.config) if args.config else None))
 
     import uvicorn
 
     from .server import create_app
 
     try:
-        settings = get_settings(args.site)
+        settings = get_settings(args.site, args.config)
     except ConfigError as e:
         print(f"blog-studio: {e}", file=sys.stderr)
         sys.exit(2)

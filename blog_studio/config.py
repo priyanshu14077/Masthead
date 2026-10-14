@@ -118,22 +118,42 @@ def site_from_snapshot(snapshot: dict, name: str) -> Site:
     return Site(root=Path("/remote") / snapshot.get("repo", name), remote=True, **fields)
 
 
-def load_site(root: Path) -> Site:
-    root = root.resolve()
-    path = root / CONFIG_NAME
-    if not path.is_file():
-        raise ConfigError(f"No {CONFIG_NAME} in {root}. Run `blog-studio init --site {root}` to create one.")
+def load_site(root: Path | None = None, config: Path | None = None) -> Site:
+    """A local blog. Its settings sit in the blog's repo (`root/blog-studio.toml`), or in a file kept
+    outside it (`config`), so the blog's repository needs no Masthead files at all.
+
+    An outside config names the repo with `repo = "path"`, relative to the config file, unless `root` is given.
+    Prompt files are read relative to the config file in both cases.
+    """
+    if config is not None:
+        path = config.resolve()
+        if not path.is_file():
+            raise ConfigError(f"No settings file at {path}.")
+    elif root is not None:
+        path = root.resolve() / CONFIG_NAME
+        if not path.is_file():
+            raise ConfigError(f"No {CONFIG_NAME} in {root.resolve()}. Run `blog-studio init --site {root}` to create one, or pass --config.")
+    else:
+        raise ConfigError("Tell Masthead which blog to open: --config FILE or --site PATH.")
+    base = path.parent
     try:
         raw = tomllib.loads(path.read_text())
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"{path}: {e}") from e
+    if root is None:
+        if not raw.get("repo"):
+            raise ConfigError(f"{path} needs `repo = \"path/to/the/blog\"`, relative to the file.")
+        root = base / raw["repo"]
+    root = root.resolve()
+    if not root.is_dir():
+        raise ConfigError(f"The blog repository {root} doesn't exist.")
 
     def read(rel: str | None) -> str:
         if not rel:
             return ""
-        f = root / rel
+        f = base / rel
         if not f.is_file():
-            raise ConfigError(f"{CONFIG_NAME} points to {rel}, which doesn't exist.")
+            raise ConfigError(f"{path.name} points to {rel}, which doesn't exist.")
         return f.read_text()
 
     return Site(root=root, **parse_config(raw, root, read))
@@ -159,7 +179,13 @@ class Settings:
         return Path(self.db_url.split("///", 1)[1]) if self.db_url.startswith("sqlite:///") else None
 
 
-def get_settings(site_root: str | Path | None = None) -> Settings:
+def _env_path(name: str) -> Path | None:
+    """A path from .env, relative to the Masthead folder that holds the .env file."""
+    value = os.environ.get(name)
+    return (STUDIO_DIR / value) if value else None
+
+
+def get_settings(site_root: str | Path | None = None, config: str | Path | None = None) -> Settings:
     load_dotenv(STUDIO_DIR / ".env")
     mode = os.environ.get("MASTHEAD_MODE", "local")
     port = int(os.environ.get("STUDIO_PORT") or os.environ.get("PORT") or "8787")  # PORT is what most hosts set
@@ -168,10 +194,11 @@ def get_settings(site_root: str | Path | None = None) -> Settings:
     data_dir.mkdir(parents=True, exist_ok=True)
     site = None
     if mode == "local":
-        root = site_root or os.environ.get("BLOG_STUDIO_SITE")
-        if not root:
-            raise ConfigError("Tell Masthead which blog to open: `blog-studio --site PATH`, or set BLOG_STUDIO_SITE in .env.")
-        site = load_site(Path(root))
+        cfg = Path(config) if config else (None if site_root else _env_path("BLOG_STUDIO_CONFIG"))
+        root = Path(site_root) if site_root else (None if cfg else _env_path("BLOG_STUDIO_SITE"))
+        if not cfg and not root:
+            raise ConfigError("Tell Masthead which blog to open: --config FILE or --site PATH, or set BLOG_STUDIO_CONFIG in .env.")
+        site = load_site(root, cfg)
         default_db = f"sqlite:///{data_dir / f'{site.slug}.db'}"  # one database per blog
     elif mode == "cloud":
         default_db = f"sqlite:///{data_dir / 'masthead.db'}"

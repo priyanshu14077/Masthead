@@ -1,4 +1,4 @@
-/* The portfolio's palette and type, from src/index.css. Nothing here is new. */
+/* Masthead's palette and type. The marketing site in marketing/ uses the same tokens. */
 :root {
   --navy: #24375a;
   --deep: #14213a;

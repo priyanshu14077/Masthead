@@ -212,6 +212,21 @@ def test_config_and_init(tmp_path):
     assert init(tmp_path) == 1  # never overwrites
 
 
+def test_settings_can_live_outside_the_blog(repo, tmp_path):
+    """The blog's repository needs no Masthead files: settings and prompts sit in their own folder."""
+    from blog_studio.cli import init
+    from blog_studio.config import load_site
+
+    (repo / "blog-studio.toml").unlink()
+    git(repo, "commit", "-qam", "drop settings")
+    cfg = tmp_path / "blogs" / "test" / "blog-studio.toml"
+    assert init(repo, cfg) == 0
+    assert not (repo / ".blog-studio").exists() and not (repo / "blog-studio.toml").exists()
+    site = load_site(config=cfg)
+    assert site.root == repo.resolve() and site.voice
+    assert git(repo, "status", "--porcelain") == ""
+
+
 def test_prompts_use_the_blogs_voice(repo):
     from blog_studio.config import load_site
     from blog_studio.prompts import build

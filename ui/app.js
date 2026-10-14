@@ -218,7 +218,7 @@ function newIdeaDialog() {
     h("label", { class: "field" }, "Notes and source material", h("span", { class: "hint" }, "Paste anything: design docs, numbers, lessons. Numbers in the post will come only from here."),
       h("textarea", { name: "notes", rows: 8 })),
     h("label", { class: "field" }, "Names allowed to appear", h("span", { class: "hint" }, "Companies or products you're allowed to name, comma separated. Everything else is kept generic."),
-      h("input", { type: "text", name: "allowed_names", placeholder: "Proploy, Anthropic" })),
+      h("input", { type: "text", name: "allowed_names", placeholder: "Acme, Anthropic" })),
     h("label", { class: "field" }, "Campaign", campaignSelect(preset)),
   ], "Add idea", async (data) => {
     const post = upsert(await api("/api/posts", { method: "POST", body: {
