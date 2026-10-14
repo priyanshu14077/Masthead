@@ -158,7 +158,16 @@ Hosted, everything lives in the database at `DATABASE_URL`, scoped by workspace 
 
 ## Marketing site
 
-`marketing/` holds the landing, pricing and brand pages as static HTML. Serve the folder from any static host. The app and demo links are constants at the top of `marketing/main.js`.
+`marketing/` is the landing page: Vite, React, TypeScript and Tailwind. It walks a sample post through Masthead: how it works, the desk running all seven steps, the confidentiality check, where it plugs in, pricing and questions. Prices are read from `plans.json` at build time.
+
+```bash
+cd marketing
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # static files in marketing/dist
+```
+
+The pricing comparison and brand pages are plain HTML in `marketing/public/` and are copied into the build as they are. Run `node scripts/sync-plans.mjs` after editing `plans.json` to update their copy of it. The app and demo links are constants in `marketing/src/lib/links.ts`.
 
 ## Development
 

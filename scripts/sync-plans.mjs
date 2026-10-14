@@ -6,7 +6,7 @@ import { dirname, join } from "node:path"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
 const source = join(root, "plans.json")
-const target = join(root, "marketing", "plans.json")
+const target = join(root, "marketing", "public", "plans.json")
 
 const text = await readFile(source, "utf8")
 const plans = JSON.parse(text) // fail loudly on invalid JSON instead of shipping it
