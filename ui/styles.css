@@ -212,3 +212,7 @@ a.btn { text-decoration: none; display: inline-flex; justify-content: center; }
 @media (max-width: 640px) { .table { display: block; overflow-x: auto; } }
 .invite input, .invite select { max-width: 240px; }
 .signed-out .shell { grid-template-columns: 1fr; } .signed-out .sidebar { display: none; }
+.includes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px 20px; font-size: 14px; }
+.includes li { display: flex; gap: 8px; align-items: baseline; }
+.includes li.off { color: var(--ink-60); }
+.includes .tag { margin-left: auto; font-size: 11.5px; padding: 0 7px; }

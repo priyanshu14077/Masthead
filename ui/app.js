@@ -167,7 +167,8 @@ function renderSidebar() {
       link("all", "All posts"),
       ...state.campaigns.map((c) => link(c.id, c.name)),
       link("none", "No campaign"),
-      can("campaigns") ? h("button", { class: "link", style: "text-align:left;padding:6px 10px", onclick: newCampaignDialog }, "+ New campaign") : null,
+      can("campaigns") && has("campaigns") ? h("button", { class: "link", style: "text-align:left;padding:6px 10px", onclick: newCampaignDialog }, "+ New campaign") : null,
+      can("campaigns") && !has("campaigns") ? h("a", { class: "small muted", style: "padding:6px 10px", href: "#/settings/billing" }, "Campaigns are on the Team plan") : null,
     ),
     h("div", { class: "side-section" },
       h("p", { class: "side-title" }, "AI spend"),
@@ -531,6 +532,10 @@ function thumbPanel(p) {
 }
 
 function socialPanel(p) {
+  if (!has("distribution_copy")) return [
+    h("div", { class: "panel-head" }, h("div", {}, h("p", { class: "eyebrow" }, "Step 6"), h("h2", {}, "Distribution copy"))),
+    h("div", { class: "callout" }, "LinkedIn, X and newsletter copy for each post is on the Team plan.", can("manage_billing") ? [" ", h("a", { href: "#/settings/billing" }, "See plans")] : null),
+  ]
   const s = p.social
   const block = (label, value, key) => {
     const area = h("textarea", { rows: key === "x_thread" ? 8 : 6, value: Array.isArray(value) ? value.join("\n\n---\n\n") : value })
@@ -790,25 +795,38 @@ async function billingPanel() {
       h("dt", {}, "Posts started this month"), h("dd", {}, fmt(usage.posts_per_month)),
       b.current_period_end && !b.cancel_at_period_end ? [h("dt", {}, "Renews"), h("dd", {}, fmtDate(new Date(Number(b.current_period_end) * 1000).toISOString()))] : null),
   ]
+  const all = await api("/api/plans")
+  const every = [...new Set(all.plans.flatMap((x) => x.features))]
+  const lowest = (f) => all.plans.find((x) => x.features.includes(f))?.name
+  out.push(h("h3", { style: "margin:8px 0 0" }, `What ${plan.name} includes`), h("ul", { class: "includes" }, ...every.map((f) => {
+    const on = plan.features.includes(f)
+    const soon = all.coming_soon.includes(f)
+    return h("li", { class: on ? "" : "off" }, h("span", { "aria-hidden": "true" }, on ? "✓" : "·"), all.feature_labels[f],
+      soon ? h("span", { class: "tag" }, "Coming") : !on ? h("span", { class: "tag" }, lowest(f)) : null)
+  })))
   if (!b.enabled) return [...out, h("p", { class: "small muted" }, "Billing isn't configured on this server.")]
   if (!b.can_manage) return [...out, h("p", { class: "small muted" }, "Owners manage billing.")]
   if (b.has_customer && plan.id !== "free") {
     out.push(h("div", { class: "row" }, h("button", { class: "btn", onclick: (e) => busy(e.currentTarget, "Opening Stripe", async () => { location.href = (await api("/api/billing/portal", { method: "POST" })).url }) }, "Manage seats, card and invoices")))
     return out
   }
+  const catalogue = await api("/api/plans")
+  const label = (f) => catalogue.feature_labels[f] + (catalogue.coming_soon.includes(f) ? " (coming)" : "")
   const yearly = h("input", { type: "checkbox", id: "yearly" })
   const upgrade = (id) => (e) => busy(e.currentTarget, "Opening Stripe", async () => {
     location.href = (await api("/api/billing/checkout", { method: "POST", body: { plan: id, interval: yearly.checked ? "yearly" : "monthly" } })).url
   })
+  const paid = catalogue.plans.filter((x) => x.price_monthly > 0)
   out.push(
-    h("label", { class: "row", for: "yearly" }, yearly, "Pay yearly. Two months free."),
-    h("div", { class: "grid-2" },
-      h("div", { class: "card stack" }, h("h3", {}, "Team"), h("p", { style: "margin:0" }, h("span", { class: "spend" }, "$19"), " per seat a month, from 2 seats"),
-        h("p", { class: "small muted", style: "margin:0" }, "Review before publishing, roles, scheduling, campaigns and a shared house voice. 14 days free on your first subscription."),
-        h("button", { class: "btn", onclick: upgrade("team") }, "Choose Team")),
-      h("div", { class: "card stack" }, h("h3", {}, "Business"), h("p", { style: "margin:0" }, h("span", { class: "spend" }, "$39"), " per seat a month, from 5 seats"),
-        h("p", { class: "small muted", style: "margin:0" }, "Everything in Team, plus approval rules, the audit log and single sign-on."),
-        h("button", { class: "btn ghost", onclick: upgrade("business") }, "Choose Business"))),
+    h("label", { class: "row", for: "yearly" }, yearly, `Pay yearly. ${12 - catalogue.annual_months_charged} months free.`),
+    h("div", { class: "grid-2" }, ...paid.map((x, i) => {
+      const before = catalogue.plans[catalogue.plans.indexOf(x) - 1]
+      const added = x.features.filter((f) => !before.features.includes(f))
+      return h("div", { class: "card stack" }, h("h3", {}, x.name),
+        h("p", { style: "margin:0" }, h("span", { class: "spend" }, `$${x.price_monthly}`), ` per seat a month, from ${x.min_seats} seats`),
+        h("p", { class: "small muted", style: "margin:0" }, `Everything in ${before.name}, plus: ${added.map(label).join(", ")}.`),
+        h("button", { class: i === 0 ? "btn" : "btn ghost", onclick: upgrade(x.id) }, `Choose ${x.name}`))
+    })),
     h("p", { class: "small muted", style: "margin:0" }, "Payment runs through Stripe. Your plan changes once Stripe confirms it, usually within seconds."),
   )
   if (/checkout=done/.test(location.hash)) out.splice(1, 0, h("div", { class: "callout" }, "Thanks. Your plan updates as soon as Stripe confirms the payment."))
