@@ -14,7 +14,6 @@ import os
 import tomllib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
@@ -30,8 +29,10 @@ from .ai import AI, AIError, FakeAI, Usage
 from .config import CONFIG_NAME, STUDIO_DIR, ConfigError, Settings, get_settings, parse_config, site_from_snapshot
 from .db import DB
 from .github_app import AppConfig, GitHubApp, GitHubError
+from .preview import CSP as PREVIEW_CSP
+from .preview import page as preview_html
 from .publisher import GitHubPublisher, LocalGitPublisher, Publisher
-from .tenancy import Ctx, Upgrade
+from .tenancy import Ctx, Upgrade, prompt_site
 from .thumbnail import DiagramSpec, render
 
 SCHEDULER_INTERVAL = 60  # seconds
@@ -196,11 +197,11 @@ def create_app(
         spaces = db.workspaces_for(user["id"])
         if not spaces:
             raise HTTPException(409, "You're not in a workspace yet.")
-        wanted = request.headers.get("x-masthead-workspace")
+        wanted = request.headers.get("x-masthead-workspace") or request.query_params.get("w")
         ws = next((w for w in spaces if str(w["id"]) == wanted), spaces[0])
         sub = db.subscription(ws["id"])
         site_rows = db.sites_for(ws["id"])
-        wanted_site = request.headers.get("x-masthead-site")
+        wanted_site = request.headers.get("x-masthead-site") or request.query_params.get("s")
         row = next((s for s in site_rows if str(s["id"]) == wanted_site), site_rows[0] if site_rows else None)
         return Ctx(user, ws, ws["role"], sub, billing.effective_plan(sub), False, row, site_for(row), db.for_site(row["id"]) if row else None)
 
@@ -208,9 +209,7 @@ def create_app(
         site, _ = c.need_site()
         if ai is not None:
             return ai
-        # The shared brand voice is a Team feature; without it, prompts use the neutral house voice.
-        effective = site if c.plan.has("brand_voice") or c.local else replace(site, voice="")
-        built = prompt_builder.build(effective)
+        built = prompt_builder.build(prompt_site(site, c.plan, c.local))
         if settings.fake_ai:
             return FakeAI(built)
         key = None
@@ -289,7 +288,9 @@ def create_app(
         out["gate"] = publish_gate(c, post)
         out["spend_usd"] = db.post_spend(post["id"])
         site = c.site
-        out["preview_url"] = (post.get("pr_url") if not c.local else site.preview(post["slug"])) if post.get("written") and post.get("slug") and site else None
+        # Masthead renders its own preview; the blog's dev server and preview deploys aren't needed.
+        scope = "" if c.local else f"?w={c.wid}&s={c.site_row['id']}" if c.site_row else ""
+        out["preview_url"] = f"/api/posts/{post['id']}/preview.html{scope}" if post.get("body") else None
         out["public_url"] = site.public(post["slug"]) if site and post.get("slug") else None
         return out
 
@@ -386,7 +387,6 @@ def create_app(
             "branch": local_branch,
             "protected_branch": bool(site and local_branch in site.protected_branches),
             "site_name": site.name if site else None,
-            "blog_preview": (site.preview("") or "").rstrip("/") or None if site and c.local else None,
             "posts_dir": site.posts_dir if site else None,
             "site_url": site.site_url if site else None,
             "tags": content.known_tags(site) if site else [],
@@ -394,6 +394,11 @@ def create_app(
             "spend": db.spend(c.wid),
             "models": {"writer": "claude-sonnet-5-5", "reviewer": "claude-haiku-5-5"},
         }
+
+    @app.get("/api/plans")
+    def plan_catalogue() -> dict[str, Any]:
+        """plans.json as is, so the app's upgrade cards show the same prices the server enforces."""
+        return json.loads(plans.PLANS_FILE.read_text())
 
     # Members ---------------------------------------------------------------
     def seat_limit(c: Ctx) -> int | None:
@@ -485,7 +490,7 @@ def create_app(
     @app.get("/github/setup")
     def github_setup(installation_id: int | None = None) -> RedirectResponse:
         # The GitHub App's "Setup URL": back to the Blogs settings with the new installation.
-        return RedirectResponse(f"/#/settings/sites?installation_id={installation_id or ''}", status_code=302)
+        return RedirectResponse(f"{auth.APP_HOME}#/settings/sites?installation_id={installation_id or ''}", status_code=302)
 
     @app.get("/api/github/repositories")
     async def repositories(installation_id: int, c: Ctx = Depends(ctx)) -> list[dict[str, str]]:
@@ -513,6 +518,8 @@ def create_app(
             repos = {r["full_name"]: r for r in await github.repositories(body.installation_id)}
             if body.repo not in repos:
                 raise HTTPException(404, "The app isn't installed on that repository.")
+            if any(s.get("repo_full_name") == body.repo for s in db.sites_for(c.wid)):
+                raise HTTPException(409, "That repository is already connected to this workspace.")
             branch = repos[body.repo]["default_branch"]
             snap = await snapshot(body.installation_id, body.repo, branch)
         except GitHubError as e:
@@ -606,7 +613,7 @@ def create_app(
             out = gateway.checkout(
                 customer=c.sub.get("stripe_customer_id"), workspace_id=c.wid, email_hint=None,
                 lookup_key=f"{plan.id}_{body.interval}", seats=seats, trial=first_time and plan.id == "team",
-                success_url=f"{settings.base_url}/#/settings/billing?checkout=done", cancel_url=f"{settings.base_url}/#/settings/billing",
+                success_url=f"{settings.base_url}{auth.APP_HOME}#/settings/billing?checkout=done", cancel_url=f"{settings.base_url}{auth.APP_HOME}#/settings/billing",
             )
         except billing.BillingError as e:
             raise HTTPException(502, str(e)) from e
@@ -619,7 +626,7 @@ def create_app(
         c.require("manage_billing")
         if not gateway or not c.sub.get("stripe_customer_id"):
             raise HTTPException(409, "There's no subscription to manage yet.")
-        return {"url": gateway.portal(customer=c.sub["stripe_customer_id"], return_url=f"{settings.base_url}/#/settings/billing")}
+        return {"url": gateway.portal(customer=c.sub["stripe_customer_id"], return_url=f"{settings.base_url}{auth.APP_HOME}#/settings/billing")}
 
     @app.post("/api/stripe/webhook")
     async def stripe_webhook(request: Request) -> dict[str, str]:
@@ -828,6 +835,18 @@ def create_app(
         log(c, pid, "thumbnail", usage)
         return view(c, c.store.update_post(pid, {"thumb_spec": spec.model_dump()}))  # type: ignore[union-attr, arg-type]
 
+    @app.get("/api/posts/{pid}/preview.html")
+    def preview_page(pid: int, c: Ctx = Depends(ctx)) -> Response:
+        site, _ = c.need_site()
+        post = get_post(c, pid)
+        if not post.get("body"):
+            raise HTTPException(409, "There's no draft to preview yet.")
+        try:
+            page = preview_html(site, post, campaign_of(c, post), thumbnail_svg(c, post))
+        except content.ContentError as e:
+            raise HTTPException(409, str(e)) from e
+        return Response(page, media_type="text/html", headers={"Cache-Control": "no-store", "Content-Security-Policy": PREVIEW_CSP, "X-Content-Type-Options": "nosniff"})
+
     @app.get("/api/posts/{pid}/thumbnail.svg")
     def thumbnail_file(pid: int, c: Ctx = Depends(ctx)) -> Response:
         svg = thumbnail_svg(c, get_post(c, pid))
@@ -911,7 +930,20 @@ def create_app(
         cfg = auth.AuthConfig(client_id, client_secret, settings.base_url)
         app.include_router(auth.router(cfg, db, on_sign_in, http=oauth_http) if oauth_http else auth.router(cfg, db, on_sign_in))
 
-    app.mount("/", StaticFiles(directory=STUDIO_DIR / "ui", html=True), name="ui")
+    # One address for the whole product: the landing page at "/", the app at "/app/".
+    @app.get("/app", include_in_schema=False)
+    def app_home() -> RedirectResponse:
+        return RedirectResponse(auth.APP_HOME, status_code=308)
+
+    app.mount("/app", StaticFiles(directory=STUDIO_DIR / "ui", html=True), name="ui")
+    site_dir = STUDIO_DIR / "marketing" / "dist"
+    if (site_dir / "index.html").is_file():
+        app.mount("/", StaticFiles(directory=site_dir, html=True), name="site")
+    else:
+        # The landing page isn't built (cd marketing && npm run build); go straight to the app.
+        @app.get("/", include_in_schema=False)
+        def root() -> RedirectResponse:
+            return RedirectResponse(auth.APP_HOME, status_code=307)
     return app
 
 

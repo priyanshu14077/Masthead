@@ -1,16 +1,16 @@
 // Masthead marketing site. Plain DOM, no framework, no build step.
 
-const APP_URL = "https://app.masthead.example" // TODO: real domain
+const APP_HOME = "/app/" // the app, served by the same Masthead server
 const DEMO_URL = "mailto:hello@masthead.example" // TODO: real domain
 
 document.documentElement.classList.add("js")
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 // Links ---------------------------------------------------------------------
-// <a data-app-link="/signup?plan=team"> and <a data-demo-link> get their href here, so the
+// <a data-app-link> and <a data-demo-link> get their href here, so the
 // domain lives in one place.
 function wireLinks() {
-  for (const a of document.querySelectorAll("[data-app-link]")) a.href = APP_URL + (a.dataset.appLink || "")
+  for (const a of document.querySelectorAll("[data-app-link]")) a.href = APP_HOME
   for (const a of document.querySelectorAll("[data-demo-link]")) a.href = DEMO_URL
 }
 
@@ -188,8 +188,8 @@ async function renderPricing() {
   }
   const featured = "team"
   const cta = (p) => p.price_monthly === 0
-    ? h("a", { class: "btn", "data-app-link": `/signup?plan=${p.id}` }, "Start free")
-    : h("a", { class: "btn", "data-app-link": `/signup?plan=${p.id}` }, `Start ${p.name}`)
+    ? h("a", { class: "btn", href: APP_HOME }, "Start free")
+    : h("a", { class: "btn", href: APP_HOME + "#/settings/billing" }, `Start ${p.name}`)
 
   const cards = data.plans.map((p, i) => {
     const prev = data.plans[i - 1]
@@ -207,7 +207,7 @@ async function renderPricing() {
       h("dl", { class: "limits" }, ...Object.entries(LIMIT_LABELS).flatMap(([k, label]) => [h("dt", {}, label), h("dd", {}, limitText(k, p.limits[k]))])),
       h("ul", { class: "tier-list", "aria-label": prev ? `Added in ${p.name}` : `In ${p.name}` },
         prev ? h("li", { class: "plain" }, `Everything in ${prev.name}, plus:`) : null,
-        ...added.map((f) => h("li", {}, data.feature_labels[f] ?? f))))
+        ...added.map((f) => h("li", {}, (data.feature_labels[f] ?? f) + ((data.coming_soon || []).includes(f) ? " (coming)" : "")))))
     return { plan: p, amount, per, note, card }
   })
   tiers.replaceChildren(...cards.map((c) => c.card))
@@ -257,8 +257,9 @@ function renderCompare(data) {
   const minRow = h("tr", {}, h("th", { scope: "row" }, "Minimum seats"), ...plans.map((p) => h("td", {}, String(p.min_seats ?? 1))))
   const limitRows = Object.entries(LIMIT_LABELS).map(([k, label]) =>
     h("tr", {}, h("th", { scope: "row" }, label), ...plans.map((p) => h("td", {}, limitText(k, p.limits[k])))))
+  const coming = data.coming_soon || []
   const featureRows = Object.entries(data.feature_labels).map(([key, label]) =>
-    h("tr", {}, h("th", { scope: "row" }, label), ...plans.map((p) => {
+    h("tr", {}, h("th", { scope: "row" }, coming.includes(key) ? `${label} (coming)` : label), ...plans.map((p) => {
       const has = p.features.includes(key)
       return h("td", {}, h("span", { class: has ? "yes" : "no", "aria-hidden": "true" }), h("span", { class: "sr-only" }, has ? "Included" : "Not included"))
     })))

@@ -251,7 +251,7 @@ class FakeAI(AI):
         title = post["idea"].strip().split("\n")[0][:60].rstrip(".") or "Untitled idea"
         return Outline(
             title=title,
-            subtitle="A sample subtitle from the Studio's fake AI mode.",
+            subtitle="A sample subtitle from Masthead's fake AI mode.",
             slug="-".join(title.lower().split())[:60],
             summary="This outline was generated without calling a model. Turn off STUDIO_FAKE_AI to use Claude.",
             tags=(known_tags[:2] or ["system-design"]),
@@ -265,7 +265,7 @@ class FakeAI(AI):
 
     async def draft(self, post: dict[str, Any], reference: str, sink: list[Usage]) -> AsyncIterator[str]:
         body = (
-            "## The problem\n\nThis draft came from fake AI mode, so the Studio can be tried without credentials.\n\n"
+            "## The problem\n\nThis draft came from fake AI mode, so Masthead can be tried without credentials.\n\n"
             "## The design\n\n<Callout type=\"note\">Turn off STUDIO_FAKE_AI to write real drafts.</Callout>\n\n"
             "<Figure caption=\"A placeholder diagram.\">\n  <Mermaid label=\"Placeholder\" chart={`\nflowchart LR\n  A[\"Client\"] --> B[\"API\"] --> C[(\"Store\")]\n`} />\n</Figure>\n\n"
             "<Takeaways>\n- Fake mode is for trying the workflow.\n</Takeaways>\n"

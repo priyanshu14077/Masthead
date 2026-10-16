@@ -6,7 +6,7 @@ for a role permission, `ctx.feature("scheduling")` for a plan feature.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from fastapi import HTTPException
@@ -23,6 +23,12 @@ PERMISSIONS: dict[str, set[str]] = {
 }
 
 ROLE_NAMES = {"owner": "owners", "editor": "editors", "writer": "writers", "reviewer": "reviewers"}
+
+
+def prompt_site(site: Site, plan: plans.Plan, local: bool) -> Site:
+    """The site as the prompts see it. The shared voice guide is the brand_voice feature; without it,
+    drafts use Masthead's neutral house voice."""
+    return site if local or plan.has("brand_voice") else replace(site, voice="")
 
 
 class Upgrade(HTTPException):

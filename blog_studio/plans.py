@@ -53,6 +53,11 @@ def feature_label(feature: str) -> str:
     return json.loads(PLANS_FILE.read_text())["feature_labels"].get(feature, feature)
 
 
+def coming_soon() -> list[str]:
+    """Features a plan lists but the product doesn't do yet. Shown as coming, never enforced."""
+    return json.loads(PLANS_FILE.read_text()).get("coming_soon", [])
+
+
 def cheapest_with(feature: str) -> Plan | None:
     """The lowest plan that includes a feature, for upgrade prompts."""
     for plan in sorted(catalogue().values(), key=lambda p: p.price_monthly):

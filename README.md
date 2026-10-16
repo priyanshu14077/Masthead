@@ -27,7 +27,7 @@ cp .env.example .env             # set ANTHROPIC_API_KEY (or run `ant auth login
 uv run blog-studio
 ```
 
-Open http://127.0.0.1:8787. Keep your blog's dev server running so previews open.
+Open http://127.0.0.1:8787. The landing page is at the root and the app at `/app/`, both served by the same Masthead server. Build the landing page once with `cd marketing && npm install && npm run build`; until then the root goes straight to the app. Masthead renders its own previews, so the blog's dev server doesn't need to run.
 
 `blogs/` is gitignored, because voice files describe your own writing. To keep the settings inside the blog's repository instead, leave out `--config` and run `uv run blog-studio --site ../my-blog`.
 
@@ -45,7 +45,7 @@ To try it without spending tokens, set `STUDIO_FAKE_AI=1` in `.env`.
 | Distribution | LinkedIn post, X thread and newsletter blurb to post by hand. | Claude Haiku 5.5 |
 | Publish | Writes the post and thumbnail, and commits only those files. | none |
 
-**Preview** writes the post with `draft: true`, so your dev server shows it and production hides it, if your blog filters drafts.
+**Preview** renders the draft inside Masthead: title, thumbnail, TL;DR and body, with your components drawn as plain callouts, figures, steps and diagrams. Nothing from the draft runs, and nothing is written to the blog. **Copy draft into the blog** writes the post with `draft: true` locally, or pushes it to the post's pull request when hosted, for teams that also want the blog's own build.
 
 **The publish gate** requires a check on the current text. High-severity findings and MDX errors must be fixed. Medium and low findings can be confirmed as reviewed. Publishing refuses to commit on protected branches such as `main`.
 
@@ -60,7 +60,6 @@ repo = "../../../my-blog"     # only when the file lives outside the blog; relat
 name = "Engineering notes"
 author = "Your name"
 site_url = "https://example.com"
-preview_url = "http://localhost:5173/blog/{slug}"
 
 [paths]
 posts = "content/blog"
@@ -139,7 +138,7 @@ A workspace's plan changes only when a signed webhook arrives, never because the
 | Team | $19 per seat a month, from 2 seats | up to 50 | 5 | unlimited |
 | Business | $39 per seat a month, from 5 seats | unlimited | unlimited | unlimited |
 
-Yearly billing charges ten months. A blocked feature returns HTTP 402 with the plan that includes it.
+Yearly billing charges ten months. A blocked feature returns HTTP 402 with the plan that includes it. Features listed in `coming_soon` show on the site and in the app as coming, and aren't enforced. `tests/test_plans.py` probes every feature on every plan, and fails when `plans.json` gains a feature the app doesn't gate.
 
 | Role | Can |
 | --- | --- |
@@ -158,7 +157,16 @@ Hosted, everything lives in the database at `DATABASE_URL`, scoped by workspace 
 
 ## Marketing site
 
-`marketing/` holds the landing, pricing and brand pages as static HTML. Serve the folder from any static host. The app and demo links are constants at the top of `marketing/main.js`.
+`marketing/` is the landing page: Vite, React, TypeScript and Tailwind. The Masthead server serves its build at `/` and the app at `/app/`, so every "Start free" and plan button leads into the app on the same address. Prices are read from `plans.json` at build time.
+
+```bash
+cd marketing
+npm install
+npm run build    # served by Masthead at / from marketing/dist
+npm run dev      # http://localhost:5173 while editing; /app, /api and /auth are proxied to Masthead on 8787
+```
+
+The pricing comparison and brand pages are plain HTML in `marketing/public/` and are copied into the build as they are. Run `node scripts/sync-plans.mjs` after editing `plans.json` to update their copy of it.
 
 ## Development
 
