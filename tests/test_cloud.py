@@ -52,7 +52,8 @@ class FakeGitHub:
         return installation_id == 1 and login in {"alice", "bob"}
 
     async def repositories(self, installation_id):
-        return [{"full_name": "acme/docs", "default_branch": "main"}]
+        names = ["acme/docs", *(f"acme/blog-{i}" for i in range(1, 8))]
+        return [{"full_name": n, "default_branch": "main"} for n in names]
 
     async def repo(self, installation_id, repo):
         return self.repo_client

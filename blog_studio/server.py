@@ -14,7 +14,6 @@ import os
 import tomllib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
@@ -31,7 +30,7 @@ from .config import CONFIG_NAME, STUDIO_DIR, ConfigError, Settings, get_settings
 from .db import DB
 from .github_app import AppConfig, GitHubApp, GitHubError
 from .publisher import GitHubPublisher, LocalGitPublisher, Publisher
-from .tenancy import Ctx, Upgrade
+from .tenancy import Ctx, Upgrade, prompt_site
 from .thumbnail import DiagramSpec, render
 
 SCHEDULER_INTERVAL = 60  # seconds
@@ -208,9 +207,7 @@ def create_app(
         site, _ = c.need_site()
         if ai is not None:
             return ai
-        # The shared brand voice is a Team feature; without it, prompts use the neutral house voice.
-        effective = site if c.plan.has("brand_voice") or c.local else replace(site, voice="")
-        built = prompt_builder.build(effective)
+        built = prompt_builder.build(prompt_site(site, c.plan, c.local))
         if settings.fake_ai:
             return FakeAI(built)
         key = None
@@ -395,6 +392,11 @@ def create_app(
             "models": {"writer": "claude-sonnet-5-5", "reviewer": "claude-haiku-5-5"},
         }
 
+    @app.get("/api/plans")
+    def plan_catalogue() -> dict[str, Any]:
+        """plans.json as is, so the app's upgrade cards show the same prices the server enforces."""
+        return json.loads(plans.PLANS_FILE.read_text())
+
     # Members ---------------------------------------------------------------
     def seat_limit(c: Ctx) -> int | None:
         if c.local:
@@ -513,6 +515,8 @@ def create_app(
             repos = {r["full_name"]: r for r in await github.repositories(body.installation_id)}
             if body.repo not in repos:
                 raise HTTPException(404, "The app isn't installed on that repository.")
+            if any(s.get("repo_full_name") == body.repo for s in db.sites_for(c.wid)):
+                raise HTTPException(409, "That repository is already connected to this workspace.")
             branch = repos[body.repo]["default_branch"]
             snap = await snapshot(body.installation_id, body.repo, branch)
         except GitHubError as e:

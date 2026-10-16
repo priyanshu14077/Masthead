@@ -42,6 +42,7 @@
       ]
     }
   ],
+  "coming_soon": ["sso", "priority_support"],
   "feature_labels": {
     "outline": "AI outlines from your notes",
     "draft": "Streaming drafts in your blog's MDX components",
