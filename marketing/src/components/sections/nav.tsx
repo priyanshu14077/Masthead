@@ -8,7 +8,7 @@ const LINKS = [
   ["How it works", "#flow"],
   ["The desk", "#desk"],
   ["The check", "#check"],
-  ["Your stack", "#stack"],
+  ["Features", "#features"],
   ["Pricing", "#pricing"],
   ["FAQ", "#faq"],
 ] as const

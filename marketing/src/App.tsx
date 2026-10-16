@@ -1,7 +1,7 @@
-import { Benefits } from "./components/sections/benefits"
 import { CheckSandbox } from "./components/sections/check-sandbox"
 import { Desk } from "./components/sections/desk"
 import { Faq } from "./components/sections/faq"
+import { Features } from "./components/sections/features"
 import { Cta, Footer } from "./components/sections/footer"
 import { Hero } from "./components/sections/hero"
 import { HowItWorks } from "./components/sections/how-it-works"
@@ -19,7 +19,7 @@ export default function App() {
         <HowItWorks />
         <Desk />
         <CheckSandbox />
-        <Benefits />
+        <Features />
         <Stack />
         <Pricing />
         <Faq />

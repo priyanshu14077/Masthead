@@ -207,7 +207,7 @@ async function renderPricing() {
       h("dl", { class: "limits" }, ...Object.entries(LIMIT_LABELS).flatMap(([k, label]) => [h("dt", {}, label), h("dd", {}, limitText(k, p.limits[k]))])),
       h("ul", { class: "tier-list", "aria-label": prev ? `Added in ${p.name}` : `In ${p.name}` },
         prev ? h("li", { class: "plain" }, `Everything in ${prev.name}, plus:`) : null,
-        ...added.map((f) => h("li", {}, data.feature_labels[f] ?? f))))
+        ...added.map((f) => h("li", {}, (data.feature_labels[f] ?? f) + ((data.coming_soon || []).includes(f) ? " (coming)" : "")))))
     return { plan: p, amount, per, note, card }
   })
   tiers.replaceChildren(...cards.map((c) => c.card))
@@ -257,8 +257,9 @@ function renderCompare(data) {
   const minRow = h("tr", {}, h("th", { scope: "row" }, "Minimum seats"), ...plans.map((p) => h("td", {}, String(p.min_seats ?? 1))))
   const limitRows = Object.entries(LIMIT_LABELS).map(([k, label]) =>
     h("tr", {}, h("th", { scope: "row" }, label), ...plans.map((p) => h("td", {}, limitText(k, p.limits[k])))))
+  const coming = data.coming_soon || []
   const featureRows = Object.entries(data.feature_labels).map(([key, label]) =>
-    h("tr", {}, h("th", { scope: "row" }, label), ...plans.map((p) => {
+    h("tr", {}, h("th", { scope: "row" }, coming.includes(key) ? `${label} (coming)` : label), ...plans.map((p) => {
       const has = p.features.includes(key)
       return h("td", {}, h("span", { class: has ? "yes" : "no", "aria-hidden": "true" }), h("span", { class: "sr-only" }, has ? "Included" : "Not included"))
     })))
