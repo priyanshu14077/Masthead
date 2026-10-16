@@ -12,7 +12,7 @@ export function Cta() {
           Your next post is already in <em className="accent">someone's notes</em>.
         </h2>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <ButtonLink href={app("/signup")}>Start free</ButtonLink>
+          <ButtonLink href={app()}>Start free</ButtonLink>
           <ButtonLink href={DEMO_URL} variant="ghost">Book a demo</ButtonLink>
         </div>
       </div>
@@ -23,7 +23,7 @@ export function Cta() {
 const COLUMNS = [
   ["Product", [["How it works", "#flow"], ["The desk", "#desk"], ["The check", "#check"], ["Features", "#features"], ["Pricing", "#pricing"]]],
   ["Company", [["Brand", "/brand.html"], ["Plan comparison", "/pricing.html"], ["Book a demo", DEMO_URL]]],
-  ["Get started", [["Start free", app("/signup")], ["Sign in", app("/login")]]],
+  ["Get started", [["Start free", app()], ["Sign in", app()]]],
 ] as const
 
 export function Footer() {

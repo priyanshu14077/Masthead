@@ -32,6 +32,7 @@ USER_URL = "https://api.github.com/user"
 ISSUER = "https://github.com/login/oauth"
 STATE_COOKIE = "masthead_oauth_state"
 SESSION_COOKIE = "masthead_session"
+APP_HOME = "/app/"  # the product; "/" is the landing page
 PENDING_TTL = 600
 
 
@@ -65,7 +66,7 @@ def pkce_pair() -> tuple[str, str]:
 
 def _safe_next(path: str | None) -> str:
     # Only same-site relative paths, so the login can't be used as an open redirect.
-    return path if path and path.startswith("/") and not path.startswith("//") else "/"
+    return path if path and path.startswith("/") and not path.startswith("//") else APP_HOME
 
 
 def router(
@@ -102,7 +103,7 @@ def router(
         return response
 
     def fail(reason: str) -> RedirectResponse:
-        response = RedirectResponse(f"/#/signin?error={reason}", status_code=302)
+        response = RedirectResponse(f"{APP_HOME}#/signin?error={reason}", status_code=302)
         response.delete_cookie(STATE_COOKIE, path="/auth")
         return response
 

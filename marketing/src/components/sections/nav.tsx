@@ -42,7 +42,7 @@ export function Nav() {
         </ul>
         <div className="hidden items-center gap-3 lg:flex">
           <ButtonLink href={DEMO_URL} variant="ghost" size="sm">Book a demo</ButtonLink>
-          <ButtonLink href={app("/signup")} size="sm">Start free</ButtonLink>
+          <ButtonLink href={app()} size="sm">Start free</ButtonLink>
         </div>
         <button className="rounded-lg border border-line p-2 lg:hidden" aria-expanded={open} aria-controls="mobile-menu" aria-label={open ? "Close menu" : "Open menu"} onClick={() => setOpen(!open)}>
           {open ? <X size={18} /> : <Menu size={18} />}
@@ -59,7 +59,7 @@ export function Nav() {
           </ul>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <ButtonLink href={DEMO_URL} variant="ghost" size="sm">Book a demo</ButtonLink>
-            <ButtonLink href={app("/signup")} size="sm">Start free</ButtonLink>
+            <ButtonLink href={app()} size="sm">Start free</ButtonLink>
           </div>
         </div>
       )}

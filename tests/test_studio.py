@@ -267,3 +267,18 @@ def test_preview_needs_a_draft(client):
     post = make_post(client)
     assert client.get(f"/api/posts/{post['id']}/preview.html").status_code == 409
 
+
+def test_landing_at_root_and_app_under_app(client):
+    """One address: the landing page (or, unbuilt, a redirect) at "/", the product at "/app/"."""
+    from blog_studio.config import STUDIO_DIR
+
+    root = client.get("/", follow_redirects=False)
+    if (STUDIO_DIR / "marketing" / "dist" / "index.html").is_file():
+        assert root.status_code == 200 and "<div id=\"root\">" in root.text
+    else:
+        assert root.status_code == 307 and root.headers["location"] == "/app/"
+    assert client.get("/app", follow_redirects=False).headers["location"] == "/app/"
+    page = client.get("/app/")
+    assert page.status_code == 200 and 'src="/app/app.js"' in page.text
+    assert client.get("/app/app.js").status_code == 200
+    assert client.get("/api/state").status_code == 200  # the API isn't shadowed by either page

@@ -635,7 +635,7 @@ function renderSignIn() {
     h("p", { class: "eyebrow" }, "Masthead"),
     h("h1", {}, "Sign in"),
     error ? h("div", { class: "callout warn" }, reasons[error] || "Sign-in failed. Try again.") : null,
-    h("a", { class: "btn", href: `/auth/login?next=${encodeURIComponent("/#/")}` }, "Continue with GitHub"),
+    h("a", { class: "btn", href: `/auth/login?next=${encodeURIComponent("/app/#/")}` }, "Continue with GitHub"),
     h("p", { class: "small muted", style: "margin:0" }, "Masthead reads your public GitHub profile only. Repository access is granted separately, per repository, through the Masthead GitHub App.")))
 }
 

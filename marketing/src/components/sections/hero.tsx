@@ -41,7 +41,7 @@ export function Hero() {
           Claude takes each post through outline, draft, a confidentiality check, a thumbnail and distribution copy. Your team reviews it and merges.
         </motion.p>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.45 }} className="mt-9 flex flex-wrap justify-center gap-3">
-          <ButtonLink href={app("/signup")}>Start free</ButtonLink>
+          <ButtonLink href={app()}>Start free</ButtonLink>
           <ButtonLink href="#desk" variant="ghost">Watch the desk work</ButtonLink>
         </motion.div>
       </div>

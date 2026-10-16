@@ -490,7 +490,7 @@ def create_app(
     @app.get("/github/setup")
     def github_setup(installation_id: int | None = None) -> RedirectResponse:
         # The GitHub App's "Setup URL": back to the Blogs settings with the new installation.
-        return RedirectResponse(f"/#/settings/sites?installation_id={installation_id or ''}", status_code=302)
+        return RedirectResponse(f"{auth.APP_HOME}#/settings/sites?installation_id={installation_id or ''}", status_code=302)
 
     @app.get("/api/github/repositories")
     async def repositories(installation_id: int, c: Ctx = Depends(ctx)) -> list[dict[str, str]]:
@@ -613,7 +613,7 @@ def create_app(
             out = gateway.checkout(
                 customer=c.sub.get("stripe_customer_id"), workspace_id=c.wid, email_hint=None,
                 lookup_key=f"{plan.id}_{body.interval}", seats=seats, trial=first_time and plan.id == "team",
-                success_url=f"{settings.base_url}/#/settings/billing?checkout=done", cancel_url=f"{settings.base_url}/#/settings/billing",
+                success_url=f"{settings.base_url}{auth.APP_HOME}#/settings/billing?checkout=done", cancel_url=f"{settings.base_url}{auth.APP_HOME}#/settings/billing",
             )
         except billing.BillingError as e:
             raise HTTPException(502, str(e)) from e
@@ -626,7 +626,7 @@ def create_app(
         c.require("manage_billing")
         if not gateway or not c.sub.get("stripe_customer_id"):
             raise HTTPException(409, "There's no subscription to manage yet.")
-        return {"url": gateway.portal(customer=c.sub["stripe_customer_id"], return_url=f"{settings.base_url}/#/settings/billing")}
+        return {"url": gateway.portal(customer=c.sub["stripe_customer_id"], return_url=f"{settings.base_url}{auth.APP_HOME}#/settings/billing")}
 
     @app.post("/api/stripe/webhook")
     async def stripe_webhook(request: Request) -> dict[str, str]:
@@ -930,7 +930,20 @@ def create_app(
         cfg = auth.AuthConfig(client_id, client_secret, settings.base_url)
         app.include_router(auth.router(cfg, db, on_sign_in, http=oauth_http) if oauth_http else auth.router(cfg, db, on_sign_in))
 
-    app.mount("/", StaticFiles(directory=STUDIO_DIR / "ui", html=True), name="ui")
+    # One address for the whole product: the landing page at "/", the app at "/app/".
+    @app.get("/app", include_in_schema=False)
+    def app_home() -> RedirectResponse:
+        return RedirectResponse(auth.APP_HOME, status_code=308)
+
+    app.mount("/app", StaticFiles(directory=STUDIO_DIR / "ui", html=True), name="ui")
+    site_dir = STUDIO_DIR / "marketing" / "dist"
+    if (site_dir / "index.html").is_file():
+        app.mount("/", StaticFiles(directory=site_dir, html=True), name="site")
+    else:
+        # The landing page isn't built (cd marketing && npm run build); go straight to the app.
+        @app.get("/", include_in_schema=False)
+        def root() -> RedirectResponse:
+            return RedirectResponse(auth.APP_HOME, status_code=307)
     return app
 
 

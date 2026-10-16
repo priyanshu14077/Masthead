@@ -139,12 +139,12 @@ def test_oauth_flow_signs_in_with_pkce_and_creates_a_workspace(tmp_path, monkeyp
     settings = Settings(mode="cloud", db_url=f"sqlite:///{tmp_path / 'o.db'}", port=8787, fake_ai=True, base_url=BASE)
     app = create_app(settings, ai=FakeAI(), oauth_http=lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     with TestClient(app, follow_redirects=False) as c:
-        res = c.get("/auth/login?next=/%23/posts")
+        res = c.get("/auth/login?next=/app/%23/posts")
         q = parse_qs(urlparse(res.headers["location"]).query)
         assert q["code_challenge_method"] == ["S256"] and q["client_id"] == ["cid"]
         state = q["state"][0]
         res = c.get(f"/auth/callback?code=abc&state={state}&iss=https://github.com/login/oauth")
-        assert res.status_code == 302 and res.headers["location"] == "/#/posts"
+        assert res.status_code == 302 and res.headers["location"] == "/app/#/posts"
         verifier = seen["token_form"]["code_verifier"][0]
         assert hashlib.sha256(verifier.encode()).digest()  # the verifier went to GitHub, not the challenge
         assert verifier != q["code_challenge"][0]

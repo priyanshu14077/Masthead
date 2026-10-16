@@ -1,16 +1,16 @@
 // Masthead marketing site. Plain DOM, no framework, no build step.
 
-const APP_URL = "https://app.masthead.example" // TODO: real domain
+const APP_HOME = "/app/" // the app, served by the same Masthead server
 const DEMO_URL = "mailto:hello@masthead.example" // TODO: real domain
 
 document.documentElement.classList.add("js")
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 // Links ---------------------------------------------------------------------
-// <a data-app-link="/signup?plan=team"> and <a data-demo-link> get their href here, so the
+// <a data-app-link> and <a data-demo-link> get their href here, so the
 // domain lives in one place.
 function wireLinks() {
-  for (const a of document.querySelectorAll("[data-app-link]")) a.href = APP_URL + (a.dataset.appLink || "")
+  for (const a of document.querySelectorAll("[data-app-link]")) a.href = APP_HOME
   for (const a of document.querySelectorAll("[data-demo-link]")) a.href = DEMO_URL
 }
 
@@ -188,8 +188,8 @@ async function renderPricing() {
   }
   const featured = "team"
   const cta = (p) => p.price_monthly === 0
-    ? h("a", { class: "btn", "data-app-link": `/signup?plan=${p.id}` }, "Start free")
-    : h("a", { class: "btn", "data-app-link": `/signup?plan=${p.id}` }, `Start ${p.name}`)
+    ? h("a", { class: "btn", href: APP_HOME }, "Start free")
+    : h("a", { class: "btn", href: APP_HOME + "#/settings/billing" }, `Start ${p.name}`)
 
   const cards = data.plans.map((p, i) => {
     const prev = data.plans[i - 1]
