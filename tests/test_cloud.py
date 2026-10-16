@@ -334,3 +334,14 @@ def test_free_plan_starts_five_posts_a_month(env):
         assert alice.post("/api/posts", json={"idea": f"Post number {i}"}).status_code == 201
     res = alice.post("/api/posts", json={"idea": "One too many"})
     assert res.status_code == 402 and res.headers["x-upgrade-to"] == "team"
+
+
+def test_preview_is_scoped_to_the_workspace(env):
+    alice, wid = make_team(env)
+    pid = alice.post("/api/posts", json={"idea": "Rate limiting at the edge"}).json()["id"]
+    write_and_check(alice, pid)
+    url = alice.get(f"/api/posts/{pid}").json()["preview_url"]
+    assert url.startswith(f"/api/posts/{pid}/preview.html?w={wid}&s=")
+    assert alice.get(url).status_code == 200
+    mallory = sign_in(env, "mallory", 3)
+    assert mallory.get(url).status_code in {404, 409}

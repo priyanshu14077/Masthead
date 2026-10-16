@@ -29,6 +29,8 @@ from .ai import AI, AIError, FakeAI, Usage
 from .config import CONFIG_NAME, STUDIO_DIR, ConfigError, Settings, get_settings, parse_config, site_from_snapshot
 from .db import DB
 from .github_app import AppConfig, GitHubApp, GitHubError
+from .preview import CSP as PREVIEW_CSP
+from .preview import page as preview_html
 from .publisher import GitHubPublisher, LocalGitPublisher, Publisher
 from .tenancy import Ctx, Upgrade, prompt_site
 from .thumbnail import DiagramSpec, render
@@ -195,11 +197,11 @@ def create_app(
         spaces = db.workspaces_for(user["id"])
         if not spaces:
             raise HTTPException(409, "You're not in a workspace yet.")
-        wanted = request.headers.get("x-masthead-workspace")
+        wanted = request.headers.get("x-masthead-workspace") or request.query_params.get("w")
         ws = next((w for w in spaces if str(w["id"]) == wanted), spaces[0])
         sub = db.subscription(ws["id"])
         site_rows = db.sites_for(ws["id"])
-        wanted_site = request.headers.get("x-masthead-site")
+        wanted_site = request.headers.get("x-masthead-site") or request.query_params.get("s")
         row = next((s for s in site_rows if str(s["id"]) == wanted_site), site_rows[0] if site_rows else None)
         return Ctx(user, ws, ws["role"], sub, billing.effective_plan(sub), False, row, site_for(row), db.for_site(row["id"]) if row else None)
 
@@ -286,7 +288,9 @@ def create_app(
         out["gate"] = publish_gate(c, post)
         out["spend_usd"] = db.post_spend(post["id"])
         site = c.site
-        out["preview_url"] = (post.get("pr_url") if not c.local else site.preview(post["slug"])) if post.get("written") and post.get("slug") and site else None
+        # Masthead renders its own preview; the blog's dev server and preview deploys aren't needed.
+        scope = "" if c.local else f"?w={c.wid}&s={c.site_row['id']}" if c.site_row else ""
+        out["preview_url"] = f"/api/posts/{post['id']}/preview.html{scope}" if post.get("body") else None
         out["public_url"] = site.public(post["slug"]) if site and post.get("slug") else None
         return out
 
@@ -383,7 +387,6 @@ def create_app(
             "branch": local_branch,
             "protected_branch": bool(site and local_branch in site.protected_branches),
             "site_name": site.name if site else None,
-            "blog_preview": (site.preview("") or "").rstrip("/") or None if site and c.local else None,
             "posts_dir": site.posts_dir if site else None,
             "site_url": site.site_url if site else None,
             "tags": content.known_tags(site) if site else [],
@@ -831,6 +834,18 @@ def create_app(
             raise HTTPException(502, str(e)) from e
         log(c, pid, "thumbnail", usage)
         return view(c, c.store.update_post(pid, {"thumb_spec": spec.model_dump()}))  # type: ignore[union-attr, arg-type]
+
+    @app.get("/api/posts/{pid}/preview.html")
+    def preview_page(pid: int, c: Ctx = Depends(ctx)) -> Response:
+        site, _ = c.need_site()
+        post = get_post(c, pid)
+        if not post.get("body"):
+            raise HTTPException(409, "There's no draft to preview yet.")
+        try:
+            page = preview_html(site, post, campaign_of(c, post), thumbnail_svg(c, post))
+        except content.ContentError as e:
+            raise HTTPException(409, str(e)) from e
+        return Response(page, media_type="text/html", headers={"Cache-Control": "no-store", "Content-Security-Policy": PREVIEW_CSP, "X-Content-Type-Options": "nosniff"})
 
     @app.get("/api/posts/{pid}/thumbnail.svg")
     def thumbnail_file(pid: int, c: Ctx = Depends(ctx)) -> Response:

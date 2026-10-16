@@ -55,7 +55,9 @@ def test_full_flow_publishes_and_commits(client, repo):
     slug = preview["slug"]
     mdx = repo / "content" / "blog" / f"{slug}.mdx"
     assert yaml.safe_load(mdx.read_text().split("---")[1])["draft"] is True
-    assert preview["preview_url"].endswith(f"/blog/{slug}")
+    assert preview["preview_url"] == f"/api/posts/{post['id']}/preview.html"
+    rendered = client.get(preview["preview_url"]).text
+    assert "Caching 101 · Part 1" in rendered and "<svg" in rendered  # series label and thumbnail
 
     published = client.post(f"/api/posts/{post['id']}/publish").json()
     assert published["status"] == "published"
@@ -235,3 +237,33 @@ def test_prompts_use_the_blogs_voice(repo):
     (repo / "blog-studio.toml").write_text((repo / "blog-studio.toml").read_text().replace("[paths]", '[prompts]\nvoice = "voice.md"\n[paths]'))
     p = build(load_site(repo))
     assert p.outline.startswith("Write like a pirate.") and "{reference}" in p.draft
+
+
+def test_preview_renders_without_the_blog_and_runs_nothing(client, repo):
+    """Masthead previews a draft itself: no dev server, no files written, no code from the draft run."""
+    post = make_post(client)
+    pid = post["id"]
+    client.post(f"/api/posts/{pid}/outline")
+    hostile = (
+        'import fs from "fs"\nexport const leak = process.env\n\n'
+        "Read [the docs](https://example.com) or [this](javascript:alert(1)).\n\n"
+        '<Callout kind="note" title="Flush">Every hop flushes. {process.exit(3)}</Callout>\n\n'
+        "<script>alert(1)</script>\n"
+    )
+    client.patch(f"/api/posts/{pid}", json={"body": hostile})
+    viewed = client.get(f"/api/posts/{pid}").json()
+    assert viewed["preview_url"] == f"/api/posts/{pid}/preview.html"
+    res = client.get(viewed["preview_url"])
+    assert res.status_code == 200 and res.headers["content-type"].startswith("text/html")
+    assert "script-src https://cdn.jsdelivr.net" in res.headers["content-security-policy"]
+    page = res.text
+    assert viewed["title"] in page
+    assert 'class="callout callout-note"' in page and "{process.exit(3)}" in page  # shown, not run
+    assert "javascript:" not in page and "alert(1)</script>" not in page and "process.env" not in page
+    assert git(repo, "status", "--porcelain") == ""  # nothing written into the blog
+
+
+def test_preview_needs_a_draft(client):
+    post = make_post(client)
+    assert client.get(f"/api/posts/{post['id']}/preview.html").status_code == 409
+

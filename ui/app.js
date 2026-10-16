@@ -177,7 +177,6 @@ function renderSidebar() {
     h("div", { class: "side-section" },
       h("p", { class: "side-title" }, "On the site"),
       h("p", { class: "small muted", style: "margin:0" }, `${state.info.site_posts.filter((p) => !p.draft).length} published · ${state.info.site_posts.filter((p) => p.draft).length} drafts`),
-      state.info.blog_preview ? h("a", { class: "small", href: state.info.blog_preview, target: "_blank", rel: "noreferrer" }, "Open the blog on the dev server ↗") : null,
     ),
     cloud() ? h("div", { class: "side-section" },
       h("p", { class: "side-title" }, "Workspace"),
@@ -464,14 +463,21 @@ function draftPanel(p) {
     h("div", { class: "row" },
       write,
       h("button", { class: "btn ghost", onclick: (e) => busy(e.currentTarget, "Saving", async () => { await save(p, { body: body.value }); toast("Draft saved.") }) }, "Save"),
-      h("button", { class: "btn ghost", onclick: (e) => busy(e.currentTarget, "Writing to the site", async () => {
-        await save(p, { body: body.value })
-        const post = upsert(await api(`/api/posts/${p.id}/preview`, { method: "POST" }))
-        toast(cloud() ? "Draft pushed to its pull request. Your blog's preview deploy picks it up." : `Written to ${state.info.posts_dir} as a draft. It shows on the dev server only.`)
-        if (post.preview_url) window.open(post.preview_url, "_blank", "noreferrer")
-        renderPost(p.id, "draft")
-      }) }, cloud() ? "Preview in a pull request ↗" : "Preview on the dev server ↗"),
+      h("button", { class: "btn ghost", disabled: !p.body, onclick: (e) => {
+        const tab = window.open("about:blank", "_blank") // opened now, inside the click, so it isn't blocked
+        busy(e.currentTarget, "Rendering", async () => {
+          const post = await save(p, { body: body.value })
+          if (tab && post.preview_url) tab.location.href = post.preview_url
+        })
+      } }, "Preview ↗"),
       h("span", { class: "spacer" }),
+      h("button", { class: "link", style: "color:var(--ink-60)", title: cloud() ? "Pushes the draft to the post's pull request branch." : `Writes the draft into ${state.info.posts_dir} with draft: true. Nothing is committed.`,
+        onclick: (e) => busy(e.currentTarget, "Writing", async () => {
+          await save(p, { body: body.value })
+          upsert(await api(`/api/posts/${p.id}/preview`, { method: "POST" }))
+          toast(cloud() ? "Draft pushed to its pull request." : `Draft written to ${state.info.posts_dir}.`)
+          renderPost(p.id, "draft")
+        }) }, cloud() ? "Push draft to the pull request" : "Copy draft into the blog"),
       h("button", { class: "link", onclick: () => go(p, "check") }, "Next: check →")),
   ]
 }
